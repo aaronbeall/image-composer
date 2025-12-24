@@ -200,6 +200,7 @@ function App() {
           <select value={layout} onChange={e => setLayout(e.target.value as LayoutType)} style={{ marginLeft: 8 }}>
             <option value="grid">Grid</option>
             <option value="packed">Packed</option>
+            <option value="collage">Collage</option>
             <option value="masonry">Masonry</option>
             <option value="single-column">Single Column</option>
             <option value="single-row">Single Row</option>
