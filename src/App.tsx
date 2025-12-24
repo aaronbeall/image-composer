@@ -1,5 +1,5 @@
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Upload, ClipboardPaste, ImagePlus, Trash2, X, Image as ImageIcon } from 'lucide-react';
 import { ImageComposer } from './ImageComposer';
 import './App.css';
@@ -16,12 +16,31 @@ interface ImageItem {
   height?: number;
 }
 
+
 function App() {
   const [images, setImages] = useState<ImageItem[]>([]);
   const [normalizeSize, setNormalizeSize] = useState(true);
   const [layout, setLayout] = useState<LayoutType>('grid');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropAreaRef = useRef<HTMLDivElement>(null);
 
+  // Read files and add to state
+  const handleFiles = (files: File[]) => {
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImages(prev => [
+          ...prev,
+          {
+            id: Math.random().toString(36).slice(2),
+            src: e.target?.result as string,
+            file,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
 
   // Handle file input
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,43 +63,8 @@ function App() {
   };
 
   // Focus the main drop area to enable paste
-  const dropAreaRef = useRef<HTMLDivElement>(null);
   const handlePasteButton = () => {
     dropAreaRef.current?.focus();
-  };
-
-  // Handle paste event
-  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    const items = e.clipboardData.items;
-    const files: File[] = [];
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.kind === 'file') {
-        const file = item.getAsFile();
-        if (file) files.push(file);
-      }
-    }
-    if (files.length > 0) {
-      handleFiles(files);
-    }
-  };
-
-  // Read files and add to state
-  const handleFiles = (files: File[]) => {
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImages(prev => [
-          ...prev,
-          {
-            id: Math.random().toString(36).slice(2),
-            src: e.target?.result as string,
-            file,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
   };
 
   // Remove all images
@@ -89,8 +73,27 @@ function App() {
   // Trigger file input
   const handleBrowse = () => fileInputRef.current?.click();
 
-  // TODO: Compose images into a single image (canvas)
-  // TODO: Implement export, re-order, label/description, layouts
+  // Global paste handler
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        handleFiles(files);
+      }
+    };
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
 
   return (
     <div className="app-container">
@@ -99,7 +102,6 @@ function App() {
         ref={dropAreaRef}
         className="drop-area"
         tabIndex={0}
-        onPaste={handlePaste}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         style={{
