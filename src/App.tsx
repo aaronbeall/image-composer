@@ -21,6 +21,7 @@ function App() {
   const [images, setImages] = useState<ImageItem[]>([]);
   const [normalizeSize, setNormalizeSize] = useState(true);
   const [layout, setLayout] = useState<LayoutType>('grid');
+  const [spacing, setSpacing] = useState(3); // 0-9, default 3
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
@@ -62,9 +63,23 @@ function App() {
     e.stopPropagation();
   };
 
-  // Focus the main drop area to enable paste
+  // Trigger browser paste dialog if possible, else focus drop area
   const handlePasteButton = () => {
-    dropAreaRef.current?.focus();
+    // Try to use the async clipboard API if available
+    if (navigator.clipboard && navigator.clipboard.read) {
+      // This will prompt the browser's paste dialog
+      navigator.clipboard.read().then(() => { }).catch(() => {
+        // fallback: focus drop area
+        dropAreaRef.current?.focus();
+      });
+    } else {
+      // fallback: focus drop area
+      dropAreaRef.current?.focus();
+      // Optionally, try to execCommand (deprecated, but may work)
+      try {
+        document.execCommand('paste');
+      } catch { }
+    }
   };
 
   // Remove all images
@@ -126,47 +141,101 @@ function App() {
             }}
             aria-label="Image drop and preview area"
           >
-            {/* Row 1: Instructions */}
-            <div
-              style={{
-                padding: images.length === 0 ? '32px 16px 16px 16px' : '16px 16px 8px 16px',
-                textAlign: 'center',
-                opacity: images.length === 0 ? 1 : 0.7,
-                color: images.length === 0 ? '#fff' : '#aaa',
-                borderBottom: images.length === 0 ? '1px solid #333' : 'none',
-                transition: 'opacity 0.2s, color 0.2s',
-                fontSize: 16,
-                background: 'none',
-                pointerEvents: 'auto',
-              }}
-            >
-              <Upload size={32} style={{ color: images.length === 0 ? '#888' : '#555', marginBottom: 6 }} />
-              <div style={{ fontWeight: 500, fontSize: 18, marginBottom: 4 }}>
-                Drag & drop images here
+            {/* Row 1: Instructions (hide if images exist) */}
+            {images.length === 0 && (
+              <div
+                style={{
+                  padding: '32px 16px 16px 16px',
+                  textAlign: 'center',
+                  opacity: 1,
+                  color: '#fff',
+                  borderBottom: '1px solid #333',
+                  transition: 'opacity 0.2s, color 0.2s',
+                  fontSize: 16,
+                  background: 'none',
+                  pointerEvents: 'auto',
+                }}
+              >
+                <Upload size={32} style={{ color: '#888', marginBottom: 6 }} />
+                <div style={{ fontWeight: 500, fontSize: 18, marginBottom: 4 }}>
+                  Drag & drop images here
+                </div>
+                <div style={{ color: '#aaa', fontSize: 15 }}>
+                  or <button type="button" onClick={handleBrowse} style={{ background: 'none', border: 'none', color: '#646cff', cursor: 'pointer', fontWeight: 500, fontSize: 15, display: 'inline-flex', alignItems: 'center' }}><ImagePlus size={18} style={{ marginRight: 4 }} />Browse</button>
+                  <span style={{ margin: '0 8px' }}>|</span>
+                  <button type="button" onClick={handlePasteButton} style={{ background: 'none', border: 'none', color: '#646cff', cursor: 'pointer', fontWeight: 500, fontSize: 15, display: 'inline-flex', alignItems: 'center' }}><ClipboardPaste size={18} style={{ marginRight: 4 }} />Paste</button>
+                </div>
+                <div style={{ color: '#aaa', fontSize: 14, marginTop: 4 }}>
+                  (You can also use <kbd>Ctrl+V</kbd> / <kbd>Cmd+V</kbd> to paste images)
+                </div>
               </div>
-              <div style={{ color: images.length === 0 ? '#aaa' : '#888', fontSize: 15 }}>
-                or <button type="button" onClick={handleBrowse} style={{ background: 'none', border: 'none', color: '#646cff', cursor: 'pointer', fontWeight: 500, fontSize: 15, display: 'inline-flex', alignItems: 'center' }}><ImagePlus size={18} style={{ marginRight: 4 }} />Browse</button>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  style={{ display: 'none' }}
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                />
-                <span style={{ margin: '0 8px' }}>|</span>
-                <button type="button" onClick={handlePasteButton} style={{ background: 'none', border: 'none', color: '#646cff', cursor: 'pointer', fontWeight: 500, fontSize: 15, display: 'inline-flex', alignItems: 'center' }}><ClipboardPaste size={18} style={{ marginRight: 4 }} />Paste</button>
-              </div>
-              <div style={{ color: images.length === 0 ? '#aaa' : '#888', fontSize: 14, marginTop: 4 }}>
-                (You can also use <kbd>Ctrl+V</kbd> / <kbd>Cmd+V</kbd> to paste images)
-              </div>
-            </div>
+            )}
+            {/* Always render the file input so any browse button can trigger it */}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              ref={fileInputRef}
+              onChange={handleFileChange}
+            />
             {/* Row 2: Tile preview list, only if images exist */}
             {images.length > 0 && (
               <>
                 <div style={{ borderTop: '1px solid #333', margin: '0 0 4px 0' }} />
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px 0 16px' }}>
-                  <div style={{ color: '#aaa', fontWeight: 500, fontSize: 15 }}>{images.length} image{images.length > 1 ? 's' : ''}</div>
+                  <div style={{ color: '#aaa', fontWeight: 500, fontSize: 15, display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span>{images.length} image{images.length > 1 ? 's' : ''}</span>
+                    {/* Inline, simplified instructions */}
+                    <span style={{ color: '#aaa', fontWeight: 400, fontSize: 14, marginLeft: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      Drag,
+                      <button
+                        type="button"
+                        onClick={handlePasteButton}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#6c63ff',
+                          cursor: 'pointer',
+                          fontWeight: 500,
+                          fontSize: 14,
+                          textDecoration: 'underline',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: 0,
+                          transition: 'color 0.15s',
+                        }}
+                        title="Paste images (Ctrl+V/Cmd+V)"
+                        onMouseOver={e => (e.currentTarget.style.color = '#8f94fb')}
+                        onMouseOut={e => (e.currentTarget.style.color = '#6c63ff')}
+                      >
+                        Paste
+                      </button>
+                      or
+                      <button
+                        type="button"
+                        onClick={handleBrowse}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#6c63ff',
+                          cursor: 'pointer',
+                          fontWeight: 500,
+                          fontSize: 14,
+                          textDecoration: 'underline',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: 0,
+                          transition: 'color 0.15s',
+                        }}
+                        title="Browse for more images"
+                        onMouseOver={e => (e.currentTarget.style.color = '#8f94fb')}
+                        onMouseOut={e => (e.currentTarget.style.color = '#6c63ff')}
+                      >
+                        add more
+                      </button>
+                    </span>
+                  </div>
                   <button
                     onClick={handleClear}
                     disabled={images.length === 0}
@@ -289,12 +358,21 @@ function App() {
                 <option value="single-row">Single Row</option>
               </select>
             </span>
+            <span>
+              Spacing:
+              <select value={spacing} onChange={e => setSpacing(Number(e.target.value))} style={{ marginLeft: 8 }}>
+                {[...Array(10)].map((_, i) => (
+                  <option key={i} value={i}>{i}</option>
+                ))}
+              </select>
+            </span>
           </div>
           <div className="composer-preview-area" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', margin: '0 auto', maxWidth: '100%' }}>
             <ImageComposer
               images={images.map(({ src, label, description }) => ({ src, label, description }))}
               normalizeSize={normalizeSize}
               layout={layout}
+              spacing={spacing}
               style={{ margin: '0 auto 0 auto', width: '100%', maxWidth: 900 }}
             />
           </div>

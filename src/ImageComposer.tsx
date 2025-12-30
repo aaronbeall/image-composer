@@ -15,6 +15,7 @@ interface ImageComposerProps {
   images: ComposeImageItem[];
   normalizeSize: boolean;
   layout: LayoutType;
+  spacing?: number; // 0-9, relative to avg image size
   onExport?: (dataUrl: string) => void;
   style?: React.CSSProperties;
 }
@@ -31,20 +32,21 @@ async function loadImages(images: ComposeImageItem[]) {
   }));
 }
 
-function getNormalizedSize(imgs: HTMLImageElement[]): { width: number, height: number } {
-  // Find the median width and height
+type NormalizeMode = 'both' | 'width' | 'height';
+function getNormalizedSize(imgs: HTMLImageElement[], mode: NormalizeMode = 'both'): { width: number, height: number } {
+  // Find the median width and/or height
   const ws = imgs.map(i => i.naturalWidth);
   const hs = imgs.map(i => i.naturalHeight);
   ws.sort((a, b) => a - b);
   hs.sort((a, b) => a - b);
   const mid = Math.floor(imgs.length / 2);
   return {
-    width: ws[mid],
-    height: hs[mid],
+    width: mode === 'height' ? 0 : ws[mid],
+    height: mode === 'width' ? 0 : hs[mid],
   };
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, onExport, style }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, onExport, style }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -55,44 +57,65 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       if (!isMounted) return;
       let norm = { width: 0, height: 0 };
       if (normalizeSize) {
-        norm = getNormalizedSize(loadedImgs);
+        // Choose normalization mode based on layout
+        let mode: NormalizeMode = 'both';
+        if (layout === 'single-row') mode = 'height';
+        else if (layout === 'single-column' || layout === 'masonry') mode = 'width';
+        norm = getNormalizedSize(loadedImgs, mode);
       }
       const sizes = loadedImgs.map(img => {
         let w = img.naturalWidth, h = img.naturalHeight;
-        if (normalizeSize && norm.width && norm.height) {
-          const aspect = w / h;
-          if (aspect > norm.width / norm.height) {
-            w = norm.width;
-            h = Math.round(norm.width / aspect);
-          } else {
+        if (normalizeSize) {
+          if (layout === 'single-row' && norm.height) {
+            // Only normalize height
+            w = Math.round(norm.height * (w / h));
             h = norm.height;
-            w = Math.round(norm.height * aspect);
+          } else if ((layout === 'single-column' || layout === 'masonry') && norm.width) {
+            // Only normalize width
+            h = Math.round(norm.width * (h / w));
+            w = norm.width;
+          } else if (norm.width && norm.height) {
+            // Both
+            const aspect = w / h;
+            if (aspect > norm.width / norm.height) {
+              w = norm.width;
+              h = Math.round(norm.width / aspect);
+            } else {
+              h = norm.height;
+              w = Math.round(norm.height * aspect);
+            }
           }
         }
         return { w, h };
       });
+      // Calculate spacing size relative to average image size
+      const avgW = sizes.reduce((a, s) => a + s.w, 0) / sizes.length;
+      const avgH = sizes.reduce((a, s) => a + s.h, 0) / sizes.length;
+      // Spacing is 0-9, mapped to 0 to 0.2 * avg (0, 0.025, ..., 0.2)
+      const spacingFrac = spacing / 9 * 0.2; // 0 to 0.2
+      const spacingPx = Math.round(spacingFrac * ((avgW + avgH) / 2));
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       switch (layout) {
         case 'single-row':
-          layoutSingleRow(images, ctx, loadedImgs, sizes);
+          layoutSingleRow(images, ctx, loadedImgs, sizes, spacingPx);
           break;
         case 'single-column':
-          layoutSingleColumn(images, ctx, loadedImgs, sizes);
+          layoutSingleColumn(images, ctx, loadedImgs, sizes, spacingPx);
           break;
         case 'grid':
-          layoutGrid(images, ctx, loadedImgs, sizes);
+          layoutGrid(images, ctx, loadedImgs, sizes, spacingPx);
           break;
         case 'masonry':
-          layoutMasonry(images, ctx, loadedImgs, sizes);
+          layoutMasonry(images, ctx, loadedImgs, sizes, spacingPx);
           break;
         case 'packed':
-          layoutPacked(images, ctx, loadedImgs, sizes);
+          layoutPacked(images, ctx, loadedImgs, sizes, spacingPx);
           break;
         case 'collage':
-          layoutCollage(images, ctx, loadedImgs, sizes);
+          layoutCollage(images, ctx, loadedImgs, sizes, spacingPx);
           break;
         default:
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -106,7 +129,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     };
     run();
     return () => { isMounted = false; };
-  }, [images, normalizeSize, layout]);
+  }, [images, normalizeSize, layout, spacing]);
 
   const handleExport = () => {
     const canvas = canvasRef.current;
@@ -148,8 +171,8 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
 
 
 // --- Layout functions ---
-function layoutSingleRow(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[]) {
-  const totalWidth = sizes.reduce((sum, s) => sum + s.w, 0);
+function layoutSingleRow(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
+  const totalWidth = sizes.reduce((sum, s, i) => sum + s.w + (i > 0 ? spacing : 0), 0);
   const maxHeight = Math.max(...sizes.map(s => s.h));
   ctx.canvas.width = totalWidth;
   ctx.canvas.height = maxHeight;
@@ -167,13 +190,13 @@ function layoutSingleRow(images: ComposeImageItem[], ctx: CanvasRenderingContext
       ctx.fillStyle = '#fff';
       ctx.fillText(images[i].description!, x + 4, sizes[i].h - 6);
     }
-    x += sizes[i].w;
+    x += sizes[i].w + spacing;
   });
 }
 
-function layoutSingleColumn(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[]) {
+function layoutSingleColumn(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
   const maxWidth = Math.max(...sizes.map(s => s.w));
-  const totalHeight = sizes.reduce((sum, s) => sum + s.h, 0);
+  const totalHeight = sizes.reduce((sum, s, i) => sum + s.h + (i > 0 ? spacing : 0), 0);
   ctx.canvas.width = maxWidth;
   ctx.canvas.height = totalHeight;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -190,42 +213,46 @@ function layoutSingleColumn(images: ComposeImageItem[], ctx: CanvasRenderingCont
       ctx.fillStyle = '#fff';
       ctx.fillText(images[i].description!, (maxWidth - sizes[i].w) / 2 + 4, y + sizes[i].h - 6);
     }
-    y += sizes[i].h;
+    y += sizes[i].h + spacing;
   });
 }
 
-function layoutGrid(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[]) {
+function layoutGrid(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
   // Make a square-ish grid
   const n = loadedImgs.length;
   const cols = Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
   const cellW = Math.max(...sizes.map(s => s.w));
   const cellH = Math.max(...sizes.map(s => s.h));
-  ctx.canvas.width = cols * cellW;
-  ctx.canvas.height = rows * cellH;
+  ctx.canvas.width = cols * cellW + (cols - 1) * spacing;
+  ctx.canvas.height = rows * cellH + (rows - 1) * spacing;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   for (let i = 0; i < n; ++i) {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    ctx.drawImage(loadedImgs[i], col * cellW + (cellW - sizes[i].w) / 2, row * cellH + (cellH - sizes[i].h) / 2, sizes[i].w, sizes[i].h);
+    const x = col * (cellW + spacing) + (cellW - sizes[i].w) / 2;
+    const y = row * (cellH + spacing) + (cellH - sizes[i].h) / 2;
+    ctx.drawImage(loadedImgs[i], x, y, sizes[i].w, sizes[i].h);
     if (images[i].label) {
       ctx.font = 'bold 14px sans-serif';
       ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].label!, col * cellW + 4, row * cellH + 16);
+      ctx.fillText(images[i].label!, x + 4, y + 16);
     }
     if (images[i].description) {
       ctx.font = '12px sans-serif';
       ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].description!, col * cellW + 4, (row + 1) * cellH - 6);
+      ctx.fillText(images[i].description!, x + 4, y + sizes[i].h - 6);
     }
   }
 }
 
-function layoutMasonry(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[]) {
+function layoutMasonry(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
   // Simple masonry: assign each image to the shortest column
   const n = loadedImgs.length;
   const cols = Math.ceil(Math.sqrt(n));
   const colWidths = Array(cols).fill(0).map((_, i) => Math.max(...sizes.filter((_, idx) => idx % cols === i).map(s => s.w), 0));
+  // Add spacing to colWidths except last col
+  for (let i = 0; i < cols - 1; ++i) colWidths[i] += spacing;
   const colHeights = Array(cols).fill(0);
   const positions: { x: number, y: number }[] = [];
   for (let i = 0; i < n; ++i) {
@@ -233,9 +260,9 @@ function layoutMasonry(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
     let minCol = 0;
     for (let c = 1; c < cols; ++c) if (colHeights[c] < colHeights[minCol]) minCol = c;
     const x = colWidths.slice(0, minCol).reduce((a, b) => a + b, 0);
-    const y = colHeights[minCol];
+    const y = colHeights[minCol] + (colHeights[minCol] > 0 ? spacing : 0);
     positions.push({ x, y });
-    colHeights[minCol] += sizes[i].h;
+    colHeights[minCol] += sizes[i].h + (colHeights[minCol] > 0 ? spacing : 0);
   }
   const totalWidth = colWidths.reduce((a, b) => a + b, 0);
   const totalHeight = Math.max(...colHeights);
@@ -259,11 +286,12 @@ function layoutMasonry(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
 
 
 // Maximal rectangles bin-packing: place images in any available gap, splitting gaps as needed
-function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[]) {
+function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
   // Estimate bin width as the max of sqrt(total area) and max image width
   const totalArea = sizes.reduce((a, s) => a + s.w * s.h, 0);
   const maxW = Math.max(...sizes.map(s => s.w));
-  const binWidth = Math.max(Math.ceil(Math.sqrt(totalArea)), maxW);
+  // Add spacing to binWidth estimate
+  const binWidth = Math.max(Math.ceil(Math.sqrt(totalArea)), maxW) + spacing * (sizes.length - 1);
   // Start with one big free rectangle
   const freeRects = [{ x: 0, y: 0, w: binWidth, h: 100000 }]; // h is "infinite" for now
   const placements: { x: number, y: number }[] = Array(sizes.length);
@@ -284,7 +312,7 @@ function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D,
     if (bestIdx === -1) {
       // No fit found, extend canvas downward
       const minY = Math.min(...freeRects.map(r => r.y + r.h));
-      freeRects.push({ x: 0, y: minY, w: binWidth, h: 100000 });
+      freeRects.push({ x: 0, y: minY + spacing, w: binWidth, h: 100000 });
       i--; // retry this image
       continue;
     }
@@ -293,8 +321,8 @@ function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D,
     maxY = Math.max(maxY, spot.y + h);
     // Split the free rect into up to 2 new rects (right and below)
     const newRects = [];
-    if (spot.w > w) newRects.push({ x: spot.x + w, y: spot.y, w: spot.w - w, h: h });
-    if (spot.h > h) newRects.push({ x: spot.x, y: spot.y + h, w: spot.w, h: spot.h - h });
+    if (spot.w > w + spacing) newRects.push({ x: spot.x + w + spacing, y: spot.y, w: spot.w - w - spacing, h: h });
+    if (spot.h > h + spacing) newRects.push({ x: spot.x, y: spot.y + h + spacing, w: spot.w, h: spot.h - h - spacing });
     // Remove used rect, add new
     freeRects.splice(bestIdx, 1, ...newRects);
     // Merge free rects (simple pass, not optimal)
@@ -342,7 +370,7 @@ function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D,
 
 
 // Radial-masonry, constraint-driven greedy packing for organic collage
-function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[]) {
+function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
   // Sort by area descending
   const indexed = sizes.map((s, i) => ({ ...s, i, area: s.w * s.h }));
   indexed.sort((a, b) => b.area - a.area);
@@ -355,16 +383,16 @@ function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
   function getCandidatePositions() {
     const candidates: { x: number, y: number, align: string, anchorIdx: number }[] = [];
     placements.forEach((p, anchorIdx) => {
-      // Snap to each edge (left, right, top, bottom)
-      candidates.push({ x: p.x + p.w, y: p.y, align: 'left', anchorIdx }); // right edge, align top
-      candidates.push({ x: p.x - 0, y: p.y, align: 'right', anchorIdx }); // left edge, align top
-      candidates.push({ x: p.x, y: p.y - 0, align: 'bottom', anchorIdx }); // top edge, align left
-      candidates.push({ x: p.x, y: p.y + p.h, align: 'top', anchorIdx }); // bottom edge, align left
+      // Snap to each edge (left, right, top, bottom), add spacing
+      candidates.push({ x: p.x + p.w + spacing, y: p.y, align: 'left', anchorIdx }); // right edge, align top
+      candidates.push({ x: p.x - spacing, y: p.y, align: 'right', anchorIdx }); // left edge, align top
+      candidates.push({ x: p.x, y: p.y - spacing, align: 'bottom', anchorIdx }); // top edge, align left
+      candidates.push({ x: p.x, y: p.y + p.h + spacing, align: 'top', anchorIdx }); // bottom edge, align left
       // Add corners for diagonal growth
-      candidates.push({ x: p.x - 0, y: p.y - 0, align: 'corner-topleft', anchorIdx });
-      candidates.push({ x: p.x + p.w, y: p.y - 0, align: 'corner-topright', anchorIdx });
-      candidates.push({ x: p.x - 0, y: p.y + p.h, align: 'corner-bottomleft', anchorIdx });
-      candidates.push({ x: p.x + p.w, y: p.y + p.h, align: 'corner-bottomright', anchorIdx });
+      candidates.push({ x: p.x - spacing, y: p.y - spacing, align: 'corner-topleft', anchorIdx });
+      candidates.push({ x: p.x + p.w + spacing, y: p.y - spacing, align: 'corner-topright', anchorIdx });
+      candidates.push({ x: p.x - spacing, y: p.y + p.h + spacing, align: 'corner-bottomleft', anchorIdx });
+      candidates.push({ x: p.x + p.w + spacing, y: p.y + p.h + spacing, align: 'corner-bottomright', anchorIdx });
     });
     return candidates;
   }
@@ -406,14 +434,14 @@ function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
           }
         }
         if (overlap) continue;
-        // Must touch at least one edge
+        // Must touch at least one edge (with spacing)
         let flush = false;
         for (const p of placements) {
           if (
-            (Math.abs(pos.x + w - p.x) < 1e-6 && pos.y < p.y + p.h && pos.y + h > p.y) || // right edge
-            (Math.abs(pos.x - (p.x + p.w)) < 1e-6 && pos.y < p.y + p.h && pos.y + h > p.y) || // left edge
-            (Math.abs(pos.y + h - p.y) < 1e-6 && pos.x < p.x + p.w && pos.x + w > p.x) || // bottom edge
-            (Math.abs(pos.y - (p.y + p.h)) < 1e-6 && pos.x < p.x + p.w && pos.x + w > p.x) // top edge
+            (Math.abs(pos.x + w + spacing - p.x) < 1e-6 && pos.y < p.y + p.h && pos.y + h > p.y) || // right edge
+            (Math.abs(pos.x - (p.x + p.w + spacing)) < 1e-6 && pos.y < p.y + p.h && pos.y + h > p.y) || // left edge
+            (Math.abs(pos.y + h + spacing - p.y) < 1e-6 && pos.x < p.x + p.w && pos.x + w > p.x) || // bottom edge
+            (Math.abs(pos.y - (p.y + p.h + spacing)) < 1e-6 && pos.x < p.x + p.w && pos.x + w > p.x) // top edge
           ) {
             flush = true;
             break;
@@ -430,7 +458,7 @@ function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
     }
     // If no valid position, expand downward
     if (!bestPos) {
-      bestPos = { x: minX, y: maxY };
+      bestPos = { x: minX, y: maxY + spacing };
     }
     placements.push({ x: bestPos.x, y: bestPos.y, w, h, i });
     minX = Math.min(minX, bestPos.x);
