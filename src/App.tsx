@@ -78,7 +78,9 @@ function App() {
       // Optionally, try to execCommand (deprecated, but may work)
       try {
         document.execCommand('paste');
-      } catch { }
+      } catch {
+        alert('Paste command not supported');
+      }
     }
   };
 
