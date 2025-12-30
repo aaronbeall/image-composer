@@ -21,8 +21,10 @@ function App() {
   const [images, setImages] = useState<ImageItem[]>([]);
   const [normalizeSize, setNormalizeSize] = useState(true);
   const [layout, setLayout] = useState<LayoutType>('grid');
-  const [spacing, setSpacing] = useState(3); // 0-9, default 3
+  const [spacing, setSpacing] = useState(20); // 0-100, default 20
   const [fit, setFit] = useState(false); // new fit option
+  const [bgColor, setBgColor] = useState<string>('transparent');
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
@@ -351,9 +353,7 @@ function App() {
 
         <div className="preview-col" style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', gap: 16 }}>
           <div className="options-toolbox" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
-            <label>
-              <input type="checkbox" checked={normalizeSize} onChange={e => setNormalizeSize(e.target.checked)} /> Normalize size
-            </label>
+
             <span>
               Layout:
               <select value={layout} onChange={e => setLayout(e.target.value as LayoutType)} style={{ marginLeft: 8 }}>
@@ -365,19 +365,69 @@ function App() {
                 <option value="single-row">Single Row</option>
               </select>
             </span>
+            <label>
+              <input type="checkbox" checked={normalizeSize} onChange={e => setNormalizeSize(e.target.checked)} /> Normalize size
+            </label>
             {/* Show fit option for grid, masonry, single-row, and single-column */}
             {(layout === 'grid' || layout === 'masonry' || layout === 'single-row' || layout === 'single-column') && (
               <label style={{ marginLeft: 8 }}>
                 <input type="checkbox" checked={fit} onChange={e => setFit(e.target.checked)} /> Fit
               </label>
             )}
-            <span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               Spacing:
-              <select value={spacing} onChange={e => setSpacing(Number(e.target.value))} style={{ marginLeft: 8 }}>
-                {[...Array(10)].map((_, i) => (
-                  <option key={i} value={i}>{i}</option>
-                ))}
-              </select>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={spacing}
+                onChange={e => setSpacing(Number(e.target.value))}
+                style={{ marginLeft: 8, width: 120 }}
+              />
+              <span style={{ minWidth: 24, textAlign: 'right', color: '#aaa', fontSize: 14 }}>{spacing}</span>
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              Background:
+              {/* Palette */}
+              {[
+                { name: 'Transparent', value: 'transparent' },
+                { name: 'White', value: '#fff' },
+                { name: 'Light Gray', value: '#eee' },
+                { name: 'Gray', value: '#888' },
+                { name: 'Black', value: '#222' },
+                { name: 'Blue', value: '#4e54c8' },
+                { name: 'Red', value: '#e44' },
+                { name: 'Yellow', value: '#ffe066' },
+                { name: 'Green', value: '#4caf50' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setBgColor(opt.value); setShowColorPicker(false); }}
+                  style={{
+                    width: 22, height: 22, borderRadius: 4, border: bgColor === opt.value ? '2px solid #646cff' : '1px solid #888', background: opt.value === 'transparent' ? 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 10px 10px' : opt.value, margin: 0, cursor: 'pointer', display: 'inline-block', position: 'relative', outline: 'none', boxShadow: bgColor === opt.value ? '0 0 0 2px #b3b6ff55' : undefined
+                  }}
+                  title={opt.name}
+                >
+                  {opt.value === 'transparent' && (
+                    <span style={{ position: 'absolute', left: 4, top: 8, fontSize: 10, color: '#888', pointerEvents: 'none' }}>⌀</span>
+                  )}
+                </button>
+              ))}
+              {/* Color picker button */}
+              <button
+                onClick={() => setShowColorPicker(v => !v)}
+                style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid #888', background: bgColor !== 'transparent' ? bgColor : 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 10px 10px', margin: 0, cursor: 'pointer', position: 'relative', outline: 'none', display: 'inline-block' }}
+                title="Custom color"
+              >
+                <span style={{ position: 'absolute', left: 5, top: 5, fontSize: 12, color: '#333', pointerEvents: 'none' }}>🎨</span>
+                <input
+                  type="color"
+                  value={bgColor !== 'transparent' ? bgColor : '#ffffff'}
+                  onChange={e => { setBgColor(e.target.value); setShowColorPicker(false); }}
+                  style={{ position: 'absolute', left: 0, top: 0, width: 22, height: 22, opacity: showColorPicker ? 1 : 0, cursor: 'pointer', border: 'none', padding: 0 }}
+                  tabIndex={-1}
+                />
+              </button>
             </span>
           </div>
           <div className="composer-preview-area" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', margin: '0 auto', maxWidth: '100%' }}>
@@ -387,6 +437,7 @@ function App() {
               layout={layout}
               spacing={spacing}
               fit={fit}
+              backgroundColor={bgColor}
               style={{ margin: '0 auto 0 auto', width: '100%', maxWidth: 900 }}
             />
           </div>

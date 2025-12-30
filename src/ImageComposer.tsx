@@ -15,8 +15,9 @@ interface ImageComposerProps {
   images: ComposeImageItem[];
   normalizeSize: boolean;
   layout: LayoutType;
-  spacing?: number; // 0-9, relative to avg image size
+  spacing?: number; // 0-100, relative to avg image size
   fit?: boolean; // new fit option for grid/masonry
+  backgroundColor?: string;
   onExport?: (dataUrl: string) => void;
   style?: React.CSSProperties;
 }
@@ -47,7 +48,7 @@ function getNormalizedSize(imgs: HTMLImageElement[], mode: NormalizeMode = 'both
   };
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, onExport, style }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, backgroundColor = 'transparent', onExport, style }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -92,31 +93,32 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       // Calculate spacing size relative to average image size
       const avgW = sizes.reduce((a, s) => a + s.w, 0) / sizes.length;
       const avgH = sizes.reduce((a, s) => a + s.h, 0) / sizes.length;
-      // Spacing is 0-9, mapped to 0 to 0.2 * avg (0, 0.025, ..., 0.2)
-      const spacingFrac = spacing / 9 * 0.2; // 0 to 0.2
+      // Spacing is 0-100, mapped to 0 to 0.2 * avg (0, 0.002, ..., 0.2)
+      const spacingFrac = spacing / 100 * 0.2; // 0 to 0.2
       const spacingPx = Math.round(spacingFrac * ((avgW + avgH) / 2));
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
+      // Pass backgroundColor to layout functions so they fill after resizing
       switch (layout) {
         case 'single-row':
-          layoutSingleRow(images, ctx, loadedImgs, sizes, spacingPx, fit);
+          layoutSingleRow(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
           break;
         case 'single-column':
-          layoutSingleColumn(images, ctx, loadedImgs, sizes, spacingPx, fit);
+          layoutSingleColumn(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
           break;
         case 'grid':
-          layoutGrid(images, ctx, loadedImgs, sizes, spacingPx, fit);
+          layoutGrid(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
           break;
         case 'masonry':
-          layoutMasonry(images, ctx, loadedImgs, sizes, spacingPx, fit);
+          layoutMasonry(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
           break;
         case 'packed':
-          layoutPacked(images, ctx, loadedImgs, sizes, spacingPx);
+          layoutPacked(images, ctx, loadedImgs, sizes, spacingPx, backgroundColor);
           break;
         case 'collage':
-          layoutCollage(images, ctx, loadedImgs, sizes, spacingPx);
+          layoutCollage(images, ctx, loadedImgs, sizes, spacingPx, backgroundColor);
           break;
         default:
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -126,11 +128,10 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
           ctx.fillStyle = '#fff';
           ctx.fillText('Layout not implemented', 10, 30);
       }
-
     };
     run();
     return () => { isMounted = false; };
-  }, [images, normalizeSize, layout, spacing, fit]);
+  }, [images, normalizeSize, layout, spacing, fit, backgroundColor]);
 
   const handleExport = () => {
     const canvas = canvasRef.current;
@@ -178,7 +179,8 @@ function layoutSingleRow(
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false
+  fit: boolean = false,
+  backgroundColor: string = 'transparent'
 ) {
   const maxHeight = Math.max(...sizes.map(s => s.h)) + 2 * spacing;
   let totalWidth;
@@ -193,7 +195,16 @@ function layoutSingleRow(
   }
   ctx.canvas.width = totalWidth;
   ctx.canvas.height = maxHeight;
+  // Fill background after resizing
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  if (backgroundColor && backgroundColor !== 'transparent') {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+  }
+  // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // already handled
   let x = spacing;
   loadedImgs.forEach((img, i) => {
     if (fit) {
@@ -234,7 +245,8 @@ function layoutSingleColumn(
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false
+  fit: boolean = false,
+  backgroundColor: string = 'transparent'
 ) {
   const maxWidth = Math.max(...sizes.map(s => s.w)) + 2 * spacing;
   let totalHeight;
@@ -249,7 +261,16 @@ function layoutSingleColumn(
   }
   ctx.canvas.width = maxWidth;
   ctx.canvas.height = totalHeight;
+  // Fill background after resizing
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  if (backgroundColor && backgroundColor !== 'transparent') {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+  }
+  // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // already handled
   let y = spacing;
   loadedImgs.forEach((img, i) => {
     if (fit) {
@@ -290,7 +311,8 @@ function layoutGrid(
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false
+  fit: boolean = false,
+  backgroundColor: string = 'transparent'
 ) {
   // Make a square-ish grid
   const n = loadedImgs.length;
@@ -300,7 +322,16 @@ function layoutGrid(
   const cellH = Math.max(...sizes.map(s => s.h));
   ctx.canvas.width = cols * cellW + (cols - 1) * spacing + 2 * spacing;
   ctx.canvas.height = rows * cellH + (rows - 1) * spacing + 2 * spacing;
+  // Fill background after resizing
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  if (backgroundColor && backgroundColor !== 'transparent') {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+  }
+  // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // already handled
   for (let i = 0; i < n; ++i) {
     const col = i % cols;
     const row = Math.floor(i / cols);
@@ -364,7 +395,8 @@ function layoutMasonry(
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false
+  fit: boolean = false,
+  backgroundColor: string = 'transparent'
 ) {
   // Simple masonry: assign each image to the shortest column
   const n = loadedImgs.length;
@@ -396,7 +428,16 @@ function layoutMasonry(
   const totalHeight = Math.max(...colHeights) + 2 * spacing;
   ctx.canvas.width = totalWidth;
   ctx.canvas.height = totalHeight;
+  // Fill background after resizing
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  if (backgroundColor && backgroundColor !== 'transparent') {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+  }
+  // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // already handled
   for (let i = 0; i < n; ++i) {
     const { x, y, w, h, imgIdx } = positions[i];
     ctx.drawImage(loadedImgs[imgIdx], x + spacing, y + spacing, w, h);
@@ -415,7 +456,7 @@ function layoutMasonry(
 
 
 // Maximal rectangles bin-packing: place images in any available gap, splitting gaps as needed
-function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
+function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0, backgroundColor: string = 'transparent') {
   // Estimate bin width as the max of sqrt(total area) and max image width
   const totalArea = sizes.reduce((a, s) => a + s.w * s.h, 0);
   const maxW = Math.max(...sizes.map(s => s.w));
@@ -477,7 +518,16 @@ function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D,
   }
   ctx.canvas.width = binWidth + 2 * spacing;
   ctx.canvas.height = maxY + 2 * spacing;
+  // Fill background after resizing
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  if (backgroundColor && backgroundColor !== 'transparent') {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+  }
+  // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // already handled
   for (let i = 0; i < sizes.length; ++i) {
     const { x, y } = placements[i];
     ctx.drawImage(loadedImgs[i], x + spacing, y + spacing, sizes[i].w, sizes[i].h);
@@ -499,7 +549,7 @@ function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D,
 
 
 // Radial-masonry, constraint-driven greedy packing for organic collage
-function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
+function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0, backgroundColor: string = 'transparent') {
   // Sort by area descending
   const indexed = sizes.map((s, i) => ({ ...s, i, area: s.w * s.h }));
   indexed.sort((a, b) => b.area - a.area);
@@ -602,7 +652,15 @@ function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
   // Add spacing to all edges by offsetting placements and increasing canvas size
   ctx.canvas.width = maxX - minX + 2 * spacing;
   ctx.canvas.height = maxY - minY + 2 * spacing;
+  // Fill background after resizing
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  if (backgroundColor && backgroundColor !== 'transparent') {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+  }
   for (const p of placements) {
     const x = p.x + offsetX + spacing;
     const y = p.y + offsetY + spacing;
