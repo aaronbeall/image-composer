@@ -19,7 +19,9 @@ interface ImageComposerProps {
   fit?: boolean; // new fit option for grid/masonry
   backgroundColor?: string;
   onExport?: (dataUrl: string) => void;
+  onUpdate(size: { width: number; height: number }): void;
   style?: React.CSSProperties;
+  scale?: number;
 }
 
 // Utility to load all images and get their natural sizes
@@ -48,7 +50,7 @@ function getNormalizedSize(imgs: HTMLImageElement[], mode: NormalizeMode = 'both
   };
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, backgroundColor = 'transparent', onExport, style }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, backgroundColor = 'transparent', onExport, style, scale = 1, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSharing, setIsSharing] = useState(false);
 
@@ -89,7 +91,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
             }
           }
         }
-        return { w, h };
+        return { w: w * scale, h: h * scale };
       });
       // Calculate spacing size relative to average image size
       const avgW = sizes.reduce((a, s) => a + s.w, 0) / sizes.length;
@@ -131,8 +133,10 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       }
     };
     run();
+    const { width, height } = canvasRef.current || { width: 0, height: 0 };
+    onUpdate({ width, height });
     return () => { isMounted = false; };
-  }, [images, normalizeSize, layout, spacing, fit, backgroundColor]);
+  }, [images, normalizeSize, layout, spacing, fit, backgroundColor, scale, onUpdate]);
 
   const handleExport = () => {
     const canvas = canvasRef.current;

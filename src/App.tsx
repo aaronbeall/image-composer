@@ -130,6 +130,8 @@ function App() {
 
   // Notes toggle state for each image
   const [notesOpen, setNotesOpen] = useState<{ [id: string]: boolean }>({});
+  const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(null);
+  const [scale, setScale] = useState(100);
 
   // Responsive layout: column on small, row on large screens
   // Use CSS flexbox for layout
@@ -404,6 +406,23 @@ function App() {
                 <span style={{ minWidth: 24, textAlign: 'right', color: '#aaa', fontSize: 14 }}>{spacing}</span>
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                Scale:
+                <input
+                  type="range"
+                  min={1}
+                  max={100}
+                  value={scale}
+                  onChange={e => setScale(Number(e.target.value))}
+                  style={{ marginLeft: 8, width: 120 }}
+                />
+                <span style={{ minWidth: 24, textAlign: 'right', color: '#aaa', fontSize: 14 }}>{scale}%</span>
+                {imageSize && (
+                  <span style={{ color: '#aaa', fontSize: 13, marginLeft: 8 }}>
+                    ({Math.round(imageSize.width * scale / 100)} × {Math.round(imageSize.height * scale / 100)} px)
+                  </span>
+                )}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 Background:
                 {/* Palette */}
                 {[
@@ -456,6 +475,8 @@ function App() {
                 fit={fit}
                 backgroundColor={bgColor}
                 style={{ margin: '0 auto 0 auto', width: '100%', maxWidth: 900 }}
+                scale={scale / 100}
+                onUpdate={setImageSize}
                 onExport={(dataUrl) => {
                   // Create a download link and click it
                   const a = document.createElement('a');
