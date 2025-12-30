@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Upload, ClipboardPaste, ImagePlus, Trash2, X, StickyNote } from 'lucide-react';
 import { ImageComposer } from './ImageComposer';
-import './App.css';
 
 type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row';
 
@@ -136,229 +135,67 @@ function App() {
   // Responsive layout: column on small, row on large screens
   // Use CSS flexbox for layout
   return (
-    <div className="app-container">
-      <header className="app-header-bar">
-        <span className="app-header-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <ImagePlus size={24} style={{ color: '#8f94fb', marginRight: 2, marginBottom: 2 }} />
+    <div className="w-full min-h-screen pt-20 px-2 bg-neutral-900 text-white text-center">
+      <header className="fixed top-0 left-0 w-full h-14 bg-neutral-900/95 text-white flex items-center z-50 border-b border-neutral-800 shadow-md px-8">
+        <span className="flex items-center gap-2 font-bold text-xl select-none">
+          <ImagePlus size={24} className="text-indigo-400 -mb-1" />
           Image Composer
         </span>
       </header>
-      <div className="main-content-row" style={{ display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box', gap: 24 }}>
-        <div className="controls-col" style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minWidth: 0, boxSizing: 'border-box' }}>
+      <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto">
+        <div className="flex flex-col gap-4 flex-1 min-w-0">
           <div
             ref={dropAreaRef}
-            className="drop-area"
             tabIndex={0}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
-            style={{
-              border: isDragOver ? '2.5px solid #646cff' : '2px dashed #888',
-              borderRadius: 12,
-              padding: 0,
-              marginBottom: 8,
-              background: isDragOver ? 'linear-gradient(90deg, #23235b 0%, #23235b 100%)' : '#181818',
-              outline: isDragOver ? '2px solid #8f94fb' : 'none',
-              boxShadow: isDragOver ? '0 0 0 4px #b3b6ff33' : undefined,
-              position: 'relative',
-              minHeight: 180,
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'flex-start',
-              transition: 'border 0.15s, background 0.15s, box-shadow 0.15s, outline 0.15s',
-            }}
             aria-label="Image drop and preview area"
+            className={`transition-all border ${isDragOver ? 'border-2 border-indigo-400 outline outline-2 outline-indigo-300 shadow-lg bg-gradient-to-r from-indigo-950 to-indigo-900' : 'border-dashed border-neutral-700'} rounded-xl min-h-[180px] flex flex-col justify-start relative mb-2`}
           >
-            {/* Row 1: Instructions (hide if images exist) */}
             {images.length === 0 && (
-              <div
-                style={{
-                  padding: '32px 16px 16px 16px',
-                  textAlign: 'center',
-                  opacity: 1,
-                  color: '#fff',
-                  borderBottom: '1px solid #333',
-                  transition: 'opacity 0.2s, color 0.2s',
-                  fontSize: 16,
-                  background: 'none',
-                  pointerEvents: 'auto',
-                }}
-              >
-                <Upload size={32} style={{ color: '#888', marginBottom: 6 }} />
-                <div style={{ fontWeight: 500, fontSize: 18, marginBottom: 4 }}>
-                  Drag & drop images here
+              <div className="py-10 px-4 text-center text-white border-b border-neutral-800 rounded-t-xl font-medium">
+                <Upload size={32} className="text-neutral-400 mb-2 mx-auto" />
+                <div className="font-semibold text-lg mb-1">Drag & drop images here</div>
+                <div className="text-neutral-400 text-base mb-1">
+                  or <button type="button" onClick={handleBrowse} className="text-indigo-400 font-semibold inline-flex items-center hover:underline"><ImagePlus size={18} className="mr-1" />Browse</button>
+                  <span className="mx-2">|</span>
+                  <button type="button" onClick={handlePasteButton} className="text-indigo-400 font-semibold inline-flex items-center hover:underline"><ClipboardPaste size={18} className="mr-1" />Paste</button>
                 </div>
-                <div style={{ color: '#aaa', fontSize: 15 }}>
-                  or <button type="button" onClick={handleBrowse} style={{ background: 'none', border: 'none', color: '#646cff', cursor: 'pointer', fontWeight: 500, fontSize: 15, display: 'inline-flex', alignItems: 'center' }}><ImagePlus size={18} style={{ marginRight: 4 }} />Browse</button>
-                  <span style={{ margin: '0 8px' }}>|</span>
-                  <button type="button" onClick={handlePasteButton} style={{ background: 'none', border: 'none', color: '#646cff', cursor: 'pointer', fontWeight: 500, fontSize: 15, display: 'inline-flex', alignItems: 'center' }}><ClipboardPaste size={18} style={{ marginRight: 4 }} />Paste</button>
-                </div>
-                <div style={{ color: '#aaa', fontSize: 14, marginTop: 4 }}>
-                  (You can also use <kbd>Ctrl+V</kbd> / <kbd>Cmd+V</kbd> to paste images)
-                </div>
+                <div className="text-neutral-400 text-sm mt-1">(You can also use <kbd>Ctrl+V</kbd> / <kbd>Cmd+V</kbd> to paste images)</div>
               </div>
             )}
-            {/* Always render the file input so any browse button can trigger it */}
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display: 'none' }}
-              ref={fileInputRef}
-              onChange={handleFileChange}
-            />
-            {/* Row 2: Tile preview list, only if images exist */}
+            <input type="file" accept="image/*" multiple className="hidden" ref={fileInputRef} onChange={handleFileChange} />
             {images.length > 0 && (
               <>
-                <div style={{ borderTop: '1px solid #333', margin: '0 0 4px 0' }} />
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px 0 16px' }}>
-                  <div style={{ color: '#aaa', fontWeight: 500, fontSize: 15, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="border-t border-neutral-800 mt-0" />
+                <div className="flex flex-row items-center justify-between px-4 pt-2">
+                  <div className="text-neutral-300 font-semibold text-base flex items-center gap-3">
                     <span>{images.length} image{images.length > 1 ? 's' : ''}</span>
-                    {/* Inline, simplified instructions */}
-                    <span style={{ color: '#aaa', fontWeight: 400, fontSize: 14, marginLeft: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="text-neutral-400 font-normal text-sm ml-2 flex items-center gap-2">
                       Drag,
-                      <button
-                        type="button"
-                        onClick={handlePasteButton}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#6c63ff',
-                          cursor: 'pointer',
-                          fontWeight: 500,
-                          fontSize: 14,
-                          textDecoration: 'underline',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          padding: 0,
-                          transition: 'color 0.15s',
-                        }}
-                        title="Paste images (Ctrl+V/Cmd+V)"
-                        onMouseOver={e => (e.currentTarget.style.color = '#8f94fb')}
-                        onMouseOut={e => (e.currentTarget.style.color = '#6c63ff')}
-                      >
-                        Paste
-                      </button>
+                      <button type="button" onClick={handlePasteButton} className="text-indigo-400 font-semibold underline hover:text-indigo-300 px-0" title="Paste images (Ctrl+V/Cmd+V)">Paste</button>
                       or
-                      <button
-                        type="button"
-                        onClick={handleBrowse}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#6c63ff',
-                          cursor: 'pointer',
-                          fontWeight: 500,
-                          fontSize: 14,
-                          textDecoration: 'underline',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          padding: 0,
-                          transition: 'color 0.15s',
-                        }}
-                        title="Browse for more images"
-                        onMouseOver={e => (e.currentTarget.style.color = '#8f94fb')}
-                        onMouseOut={e => (e.currentTarget.style.color = '#6c63ff')}
-                      >
-                        add more
-                      </button>
+                      <button type="button" onClick={handleBrowse} className="text-indigo-400 font-semibold underline hover:text-indigo-300 px-0" title="Browse for more images">add more</button>
                     </span>
                   </div>
-                  <button
-                    onClick={handleClear}
-                    disabled={images.length === 0}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#e44',
-                      cursor: images.length === 0 ? 'not-allowed' : 'pointer',
-                      fontWeight: 500,
-                      fontSize: 15,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      margin: 0,
-                      padding: '4px 12px',
-                      height: 32,
-                      backgroundColor: '#181818',
-                      boxShadow: '0 2px 8px #0002',
-                    }}
-                  >
-                    <Trash2 size={18} style={{ marginRight: 4 }} />Clear
-                  </button>
+                  <button onClick={handleClear} disabled={images.length === 0} className="bg-neutral-900 text-red-500 font-semibold flex items-center px-3 py-1.5 rounded-md shadow-sm border border-neutral-800 hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed"><Trash2 size={18} className="mr-1" />Clear</button>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', gap: 8, overflowX: 'auto', padding: '8px 16px 8px 16px', minHeight: 100 }}>
+                <div className="flex flex-row items-end gap-2 overflow-x-auto px-4 py-2 min-h-[100px]">
                   {images.map((img, idx) => {
                     const hasNotes = !!img.label || !!img.description;
                     return (
-                      <div key={img.id} className="image-item" style={{ position: 'relative', marginBottom: 4, minWidth: 110, maxWidth: 140, flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#222', borderRadius: 8, boxShadow: '0 1px 4px #0004', padding: 8 }}>
-                        <img src={img.src} alt={img.label || `Image ${idx + 1}`} style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 6, marginBottom: 4, background: '#111' }} />
-                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 4, width: '100%', justifyContent: 'center' }}>
-                          <button
-                            className="image-delete-btn"
-                            title="Delete image"
-                            onClick={() => setImages(prev => prev.filter((_, i) => i !== idx))}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#e44',
-                              cursor: 'pointer',
-                              padding: 2,
-                              borderRadius: 4,
-                              lineHeight: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <X size={18} />
-                          </button>
-                          <button
-                            className="image-notes-btn"
-                            title="Show/hide notes"
-                            onClick={() => setNotesOpen(prev => ({ ...prev, [img.id]: !prev[img.id] }))}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#aaa',
-                              cursor: 'pointer',
-                              padding: 2,
-                              borderRadius: 4,
-                              lineHeight: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              position: 'relative',
-                            }}
-                          >
-                            <StickyNote size={18} />
-                            {hasNotes && <span style={{ position: 'absolute', top: 2, right: 2, width: 7, height: 7, background: '#e44', borderRadius: '50%' }} />}
-                          </button>
+                      <div key={img.id} className="relative mb-1 min-w-[110px] max-w-[140px] flex flex-col items-center bg-neutral-800 rounded-lg shadow-md p-2">
+                        <img src={img.src} alt={img.label || `Image ${idx + 1}`} className="w-[90px] h-[90px] object-cover rounded-md mb-1 bg-neutral-900" />
+                        <div className="flex flex-row items-center gap-1 w-full justify-center">
+                          <button className="image-delete-btn" title="Delete image" onClick={() => setImages(prev => prev.filter((_, i) => i !== idx))}><X size={18} /></button>
+                          <button className="ml-1 image-notes-btn text-neutral-400" title="Show/hide notes" onClick={() => setNotesOpen(prev => ({ ...prev, [img.id]: !prev[img.id] }))}><StickyNote size={18} />{hasNotes && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />}</button>
                         </div>
-                        {/* Notes fields, toggled */}
                         {notesOpen[img.id] && (
-                          <div style={{ marginTop: 6, width: '100%' }}>
-                            <input
-                              type="text"
-                              placeholder="Label"
-                              value={img.label || ''}
-                              onChange={e => {
-                                const newLabel = e.target.value;
-                                setImages(prev => prev.map((im, i) => i === idx ? { ...im, label: newLabel } : im));
-                              }}
-                              className="image-label-input"
-                              style={{ width: '100%', marginBottom: 4 }}
-                            />
-                            <textarea
-                              placeholder="Description"
-                              value={img.description || ''}
-                              onChange={e => {
-                                const newDesc = e.target.value;
-                                setImages(prev => prev.map((im, i) => i === idx ? { ...im, description: newDesc } : im));
-                              }}
-                              className="image-desc-input"
-                              style={{ width: '100%', resize: 'vertical', minHeight: 32 }}
-                            />
+                          <div className="mt-2 w-full">
+                            <input type="text" placeholder="Label" value={img.label || ''} onChange={e => { const newLabel = e.target.value; setImages(prev => prev.map((im, i) => i === idx ? { ...im, label: newLabel } : im)); }} className="image-label-input w-full mb-1 rounded border border-neutral-700 bg-neutral-900 text-white px-2 py-1 text-sm" />
+                            <textarea placeholder="Description" value={img.description || ''} onChange={e => { const newDesc = e.target.value; setImages(prev => prev.map((im, i) => i === idx ? { ...im, description: newDesc } : im)); }} className="image-desc-input w-full resize-y min-h-[32px] rounded border border-neutral-700 bg-neutral-900 text-white px-2 py-1 text-sm" />
                           </div>
                         )}
                       </div>
@@ -371,11 +208,11 @@ function App() {
         </div>
 
         {images.length > 0 && (
-          <div className="preview-col" style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', gap: 16 }}>
-            <div className="options-toolbox" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
-              <span>
+          <div className="flex flex-col flex-1 min-w-0 max-w-full gap-4">
+            <div className="options-toolbox flex flex-wrap items-center gap-4 bg-neutral-900 border border-neutral-800 rounded-lg shadow-md px-6 py-3 mx-auto max-w-2xl">
+              <span className="font-semibold text-base">
                 Layout:
-                <select value={layout} onChange={e => setLayout(e.target.value as LayoutType)} style={{ marginLeft: 8 }}>
+                <select value={layout} onChange={e => setLayout(e.target.value as LayoutType)} className="ml-2 text-base rounded border border-neutral-700 bg-neutral-800 text-white px-2 py-1 font-medium">
                   <option value="grid">Grid</option>
                   <option value="packed">Packed</option>
                   <option value="collage">Collage</option>
@@ -384,47 +221,29 @@ function App() {
                   <option value="single-row">Single Row</option>
                 </select>
               </span>
-              <label>
-                <input type="checkbox" checked={normalizeSize} onChange={e => setNormalizeSize(e.target.checked)} /> Normalize size
+              <label className="font-medium text-base flex items-center">
+                <input type="checkbox" checked={normalizeSize} onChange={e => setNormalizeSize(e.target.checked)} className="mr-1" /> Normalize size
               </label>
-              {/* Show fit option for grid, masonry, single-row, and single-column */}
               {(layout === 'grid' || layout === 'masonry' || layout === 'single-row' || layout === 'single-column') && (
-                <label style={{ marginLeft: 8 }}>
-                  <input type="checkbox" checked={fit} onChange={e => setFit(e.target.checked)} /> Fit
+                <label className="ml-2 font-medium text-base flex items-center">
+                  <input type="checkbox" checked={fit} onChange={e => setFit(e.target.checked)} className="mr-1" /> Fit
                 </label>
               )}
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="flex items-center gap-2 font-medium text-base">
                 Spacing:
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={spacing}
-                  onChange={e => setSpacing(Number(e.target.value))}
-                  style={{ marginLeft: 8, width: 120 }}
-                />
-                <span style={{ minWidth: 24, textAlign: 'right', color: '#aaa', fontSize: 14 }}>{spacing}</span>
+                <input type="range" min={0} max={100} value={spacing} onChange={e => setSpacing(Number(e.target.value))} className="ml-2 w-32" />
+                <span className="min-w-[24px] text-right text-neutral-400 text-sm">{spacing}</span>
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="flex items-center gap-2 font-medium text-base">
                 Scale:
-                <input
-                  type="range"
-                  min={1}
-                  max={100}
-                  value={scale}
-                  onChange={e => setScale(Number(e.target.value))}
-                  style={{ marginLeft: 8, width: 120 }}
-                />
-                <span style={{ minWidth: 24, textAlign: 'right', color: '#aaa', fontSize: 14 }}>{scale}%</span>
+                <input type="range" min={1} max={100} value={scale} onChange={e => setScale(Number(e.target.value))} className="ml-2 w-32" />
+                <span className="min-w-[24px] text-right text-neutral-400 text-sm">{scale}%</span>
                 {imageSize && (
-                  <span style={{ color: '#aaa', fontSize: 13, marginLeft: 8 }}>
-                    ({Math.round(imageSize.width * scale / 100)} × {Math.round(imageSize.height * scale / 100)} px)
-                  </span>
+                  <span className="text-neutral-400 text-xs ml-2">({Math.round(imageSize.width * scale / 100)} × {Math.round(imageSize.height * scale / 100)} px)</span>
                 )}
               </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="flex items-center gap-2 font-medium text-base">
                 Background:
-                {/* Palette */}
                 {[
                   { name: 'Transparent', value: 'transparent' },
                   { name: 'White', value: '#fff' },
@@ -436,37 +255,17 @@ function App() {
                   { name: 'Yellow', value: '#ffe066' },
                   { name: 'Green', value: '#4caf50' },
                 ].map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => { setBgColor(opt.value); setShowColorPicker(false); }}
-                    style={{
-                      width: 22, height: 22, borderRadius: 4, border: bgColor === opt.value ? '2px solid #646cff' : '1px solid #888', background: opt.value === 'transparent' ? 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 10px 10px' : opt.value, margin: 0, cursor: 'pointer', display: 'inline-block', position: 'relative', outline: 'none', boxShadow: bgColor === opt.value ? '0 0 0 2px #b3b6ff55' : undefined
-                    }}
-                    title={opt.name}
-                  >
-                    {opt.value === 'transparent' && (
-                      <span style={{ position: 'absolute', left: 4, top: 8, fontSize: 10, color: '#888', pointerEvents: 'none' }}>⌀</span>
-                    )}
+                  <button key={opt.value} onClick={() => { setBgColor(opt.value); setShowColorPicker(false); }} className={`w-6 h-6 rounded border ${bgColor === opt.value ? 'border-2 border-indigo-400 shadow' : 'border-neutral-700'} mx-0 cursor-pointer inline-block relative outline-none`} style={{ background: opt.value === 'transparent' ? 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 10px 10px' : opt.value }} title={opt.name}>
+                    {opt.value === 'transparent' && (<span className="absolute left-1 top-2 text-xs text-neutral-400 pointer-events-none">⌀</span>)}
                   </button>
                 ))}
-                {/* Color picker button */}
-                <button
-                  onClick={() => setShowColorPicker(v => !v)}
-                  style={{ width: 22, height: 22, borderRadius: 4, border: '1px solid #888', background: bgColor !== 'transparent' ? bgColor : 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 10px 10px', margin: 0, cursor: 'pointer', position: 'relative', outline: 'none', display: 'inline-block' }}
-                  title="Custom color"
-                >
-                  <span style={{ position: 'absolute', left: 5, top: 5, fontSize: 12, color: '#333', pointerEvents: 'none' }}>🎨</span>
-                  <input
-                    type="color"
-                    value={bgColor !== 'transparent' ? bgColor : '#ffffff'}
-                    onChange={e => { setBgColor(e.target.value); setShowColorPicker(false); }}
-                    style={{ position: 'absolute', left: 0, top: 0, width: 22, height: 22, opacity: showColorPicker ? 1 : 0, cursor: 'pointer', border: 'none', padding: 0 }}
-                    tabIndex={-1}
-                  />
+                <button onClick={() => setShowColorPicker(v => !v)} className="w-6 h-6 rounded border border-neutral-700 mx-0 cursor-pointer relative outline-none inline-block" style={{ background: bgColor !== 'transparent' ? bgColor : 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 10px 10px' }} title="Custom color">
+                  <span className="absolute left-1.5 top-1.5 text-base text-neutral-700 pointer-events-none">🎨</span>
+                  <input type="color" value={bgColor !== 'transparent' ? bgColor : '#ffffff'} onChange={e => { setBgColor(e.target.value); setShowColorPicker(false); }} className={`absolute left-0 top-0 w-6 h-6 opacity-${showColorPicker ? '100' : '0'} cursor-pointer border-none p-0`} tabIndex={-1} />
                 </button>
               </span>
             </div>
-            <div className="composer-preview-area" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', margin: '0 auto', maxWidth: '100%' }}>
+            <div className="flex flex-col items-center w-full mx-auto max-w-full">
               <ImageComposer
                 images={images.map(({ src, label, description }) => ({ src, label, description }))}
                 normalizeSize={normalizeSize}
@@ -478,7 +277,6 @@ function App() {
                 scale={scale / 100}
                 onUpdate={setImageSize}
                 onExport={(dataUrl) => {
-                  // Create a download link and click it
                   const a = document.createElement('a');
                   a.href = dataUrl;
                   a.download = 'composed-image.png';
@@ -491,10 +289,9 @@ function App() {
           </div>
         )}
       </div>
-      {/* Responsive CSS for row/column layout */}
-      {/* CSS moved to App.css for layout */}
     </div>
   );
+
 }
 
 export default App;
