@@ -383,7 +383,7 @@ function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
   function getCandidatePositions() {
     const candidates: { x: number, y: number, align: string, anchorIdx: number }[] = [];
     placements.forEach((p, anchorIdx) => {
-      // Snap to each edge (left, right, top, bottom), add spacing
+      // Snap to each edge (left, right, top, bottom), add spacing on both sides
       candidates.push({ x: p.x + p.w + spacing, y: p.y, align: 'left', anchorIdx }); // right edge, align top
       candidates.push({ x: p.x - spacing, y: p.y, align: 'right', anchorIdx }); // left edge, align top
       candidates.push({ x: p.x, y: p.y - spacing, align: 'bottom', anchorIdx }); // top edge, align left
@@ -413,6 +413,7 @@ function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
     const candidates = getCandidatePositions();
     for (const cand of candidates) {
       // Try all four alignments for each candidate
+      // All alignments must include spacing between images
       const alignments = [
         { x: cand.x, y: cand.y }, // top-left
         { x: cand.x - w, y: cand.y }, // top-right
@@ -423,11 +424,12 @@ function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
         // Check for overlap
         let overlap = false;
         for (const p of placements) {
+          // Enforce spacing between all images (not just overlap)
           if (
-            pos.x < p.x + p.w &&
-            pos.x + w > p.x &&
-            pos.y < p.y + p.h &&
-            pos.y + h > p.y
+            pos.x < p.x + p.w + spacing &&
+            pos.x + w + spacing > p.x &&
+            pos.y < p.y + p.h + spacing &&
+            pos.y + h + spacing > p.y
           ) {
             overlap = true;
             break;
@@ -438,10 +440,10 @@ function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
         let flush = false;
         for (const p of placements) {
           if (
-            (Math.abs(pos.x + w + spacing - p.x) < 1e-6 && pos.y < p.y + p.h && pos.y + h > p.y) || // right edge
-            (Math.abs(pos.x - (p.x + p.w + spacing)) < 1e-6 && pos.y < p.y + p.h && pos.y + h > p.y) || // left edge
-            (Math.abs(pos.y + h + spacing - p.y) < 1e-6 && pos.x < p.x + p.w && pos.x + w > p.x) || // bottom edge
-            (Math.abs(pos.y - (p.y + p.h + spacing)) < 1e-6 && pos.x < p.x + p.w && pos.x + w > p.x) // top edge
+            (Math.abs(pos.x + w + spacing - p.x) < 1e-6 && pos.y < p.y + p.h + spacing && pos.y + h > p.y) || // right edge
+            (Math.abs(pos.x - (p.x + p.w + spacing)) < 1e-6 && pos.y < p.y + p.h + spacing && pos.y + h > p.y) || // left edge
+            (Math.abs(pos.y + h + spacing - p.y) < 1e-6 && pos.x < p.x + p.w + spacing && pos.x + w > p.x) || // bottom edge
+            (Math.abs(pos.y - (p.y + p.h + spacing)) < 1e-6 && pos.x < p.x + p.w + spacing && pos.x + w > p.x) // top edge
           ) {
             flush = true;
             break;
@@ -468,11 +470,14 @@ function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
   }
   // Normalize all positions so minX/minY is at 0,0
   const offsetX = -minX, offsetY = -minY;
+  // Add spacing to all edges by offsetting placements and increasing canvas size
   ctx.canvas.width = maxX - minX + 2 * spacing;
   ctx.canvas.height = maxY - minY + 2 * spacing;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   for (const p of placements) {
-    const x = p.x + offsetX + spacing, y = p.y + offsetY + spacing, i = p.i;
+    const x = p.x + offsetX + spacing;
+    const y = p.y + offsetY + spacing;
+    const i = p.i;
     ctx.drawImage(loadedImgs[i], x, y, sizes[i].w, sizes[i].h);
     if (images[i].label) {
       ctx.font = 'bold 14px sans-serif';
