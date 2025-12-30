@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { Download } from 'lucide-react';
 
 export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'collage';
 
@@ -118,7 +119,28 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     <div style={{ textAlign: 'center', ...style }}>
       <canvas ref={canvasRef} style={{ maxWidth: '100%', border: '1px solid #444', background: '#222', marginBottom: 8 }} />
       <div>
-        <button onClick={handleExport}>Export as Image</button>
+        <button
+          onClick={handleExport}
+          style={{
+            background: 'linear-gradient(90deg, #4e54c8 0%, #8f94fb 100%)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 4,
+            padding: '8px 20px',
+            fontWeight: 600,
+            fontSize: 16,
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+            margin: '8px 0',
+            transition: 'background 0.2s',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <Download size={20} style={{ marginRight: 6 }} />
+          Export as Image
+        </button>
       </div>
     </div>
   );
@@ -243,7 +265,7 @@ function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D,
   const maxW = Math.max(...sizes.map(s => s.w));
   const binWidth = Math.max(Math.ceil(Math.sqrt(totalArea)), maxW);
   // Start with one big free rectangle
-  let freeRects = [{ x: 0, y: 0, w: binWidth, h: 100000 }]; // h is "infinite" for now
+  const freeRects = [{ x: 0, y: 0, w: binWidth, h: 100000 }]; // h is "infinite" for now
   const placements: { x: number, y: number }[] = Array(sizes.length);
   let maxY = 0;
   for (let i = 0; i < sizes.length; ++i) {
@@ -351,7 +373,7 @@ function layoutCollage(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
   // Center is the center of the first (largest) image
   const centerX = placements[0].x + placements[0].w / 2;
   const centerY = placements[0].y + placements[0].h / 2;
-  function scorePlacement(pos, w, h) {
+  function scorePlacement(pos: { x: number; y: number }, w: number, h: number) {
     const cx = pos.x + w / 2, cy = pos.y + h / 2;
     return Math.sqrt((cx - centerX) * (cx - centerX) + (cy - centerY) * (cy - centerY));
   }

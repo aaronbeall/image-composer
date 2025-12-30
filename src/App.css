@@ -20,7 +20,7 @@
 }
 /* Toolbox for options below image items */
 .options-toolbox {
-  margin: 18px auto 0 auto;
+  margin: 0 auto 0 auto;
   max-width: 600px;
   display: flex;
   align-items: center;
@@ -45,10 +45,68 @@
 }
 /* Image Composer styles */
 .app-container {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 2rem;
+  width: 100%;
+  min-height: 100vh;
+  padding: 2rem 0;
+  box-sizing: border-box;
   text-align: center;
+}
+
+.main-content-row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 24px;
+}
+
+.controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1 1 0%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.preview-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  gap: 16px;
+}
+
+@media (min-width: 900px) {
+  .main-content-row {
+    flex-direction: row !important;
+    gap: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  .controls-col {
+    flex: 1 1 0%;
+    min-width: 0;
+    max-width: 50%;
+    box-sizing: border-box;
+    padding-right: 24px;
+  }
+  .preview-col {
+    flex: 1 1 0%;
+    min-width: 0;
+    max-width: 50%;
+    box-sizing: border-box;
+    padding-left: 24px;
+    border-left: 1.5px solid #222;
+  }
+  .composer-preview-area {
+    align-items: flex-start !important;
+    margin-top: 0 !important;
+    margin-left: 0 !important;
+    max-width: 100% !important;
+  }
 }
 
 
