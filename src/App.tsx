@@ -25,6 +25,7 @@ function App() {
   const [fit, setFit] = useState(false); // new fit option
   const [bgColor, setBgColor] = useState<string>('transparent');
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +58,7 @@ function App() {
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    setIsDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleFiles(Array.from(e.dataTransfer.files));
     }
@@ -64,6 +66,17 @@ function App() {
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isDragOver) setIsDragOver(true);
+  };
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
   };
 
   // Trigger browser paste dialog if possible, else focus drop area
@@ -136,18 +149,22 @@ function App() {
             tabIndex={0}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
             style={{
-              border: '2px dashed #888',
+              border: isDragOver ? '2.5px solid #646cff' : '2px dashed #888',
               borderRadius: 12,
               padding: 0,
               marginBottom: 8,
-              background: '#181818',
-              outline: 'none',
+              background: isDragOver ? 'linear-gradient(90deg, #23235b 0%, #23235b 100%)' : '#181818',
+              outline: isDragOver ? '2px solid #8f94fb' : 'none',
+              boxShadow: isDragOver ? '0 0 0 4px #b3b6ff33' : undefined,
               position: 'relative',
               minHeight: 180,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'flex-start',
+              transition: 'border 0.15s, background 0.15s, box-shadow 0.15s, outline 0.15s',
             }}
             aria-label="Image drop and preview area"
           >
