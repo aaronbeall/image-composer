@@ -16,6 +16,7 @@ interface ImageComposerProps {
   normalizeSize: boolean;
   layout: LayoutType;
   spacing?: number; // 0-9, relative to avg image size
+  fit?: boolean; // new fit option for grid/masonry
   onExport?: (dataUrl: string) => void;
   style?: React.CSSProperties;
 }
@@ -46,7 +47,7 @@ function getNormalizedSize(imgs: HTMLImageElement[], mode: NormalizeMode = 'both
   };
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, onExport, style }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, onExport, style }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -100,16 +101,16 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       if (!ctx) return;
       switch (layout) {
         case 'single-row':
-          layoutSingleRow(images, ctx, loadedImgs, sizes, spacingPx);
+          layoutSingleRow(images, ctx, loadedImgs, sizes, spacingPx, fit);
           break;
         case 'single-column':
-          layoutSingleColumn(images, ctx, loadedImgs, sizes, spacingPx);
+          layoutSingleColumn(images, ctx, loadedImgs, sizes, spacingPx, fit);
           break;
         case 'grid':
-          layoutGrid(images, ctx, loadedImgs, sizes, spacingPx);
+          layoutGrid(images, ctx, loadedImgs, sizes, spacingPx, fit);
           break;
         case 'masonry':
-          layoutMasonry(images, ctx, loadedImgs, sizes, spacingPx);
+          layoutMasonry(images, ctx, loadedImgs, sizes, spacingPx, fit);
           break;
         case 'packed':
           layoutPacked(images, ctx, loadedImgs, sizes, spacingPx);
@@ -129,7 +130,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     };
     run();
     return () => { isMounted = false; };
-  }, [images, normalizeSize, layout, spacing]);
+  }, [images, normalizeSize, layout, spacing, fit]);
 
   const handleExport = () => {
     const canvas = canvasRef.current;
@@ -171,53 +172,126 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
 
 
 // --- Layout functions ---
-function layoutSingleRow(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
-  const totalWidth = sizes.reduce((sum, s, i) => sum + s.w + (i > 0 ? spacing : 0), 0) + 2 * spacing;
+function layoutSingleRow(
+  images: ComposeImageItem[],
+  ctx: CanvasRenderingContext2D,
+  loadedImgs: HTMLImageElement[],
+  sizes: { w: number, h: number }[],
+  spacing: number = 0,
+  fit: boolean = false
+) {
   const maxHeight = Math.max(...sizes.map(s => s.h)) + 2 * spacing;
+  let totalWidth;
+  let scaledWidths: number[] = [];
+  if (fit) {
+    // All images get height = maxHeight - 2*spacing, width by aspect ratio
+    const rowH = maxHeight - 2 * spacing;
+    scaledWidths = loadedImgs.map(img => Math.round(rowH * (img.naturalWidth / img.naturalHeight)));
+    totalWidth = scaledWidths.reduce((sum, w, i) => sum + w + (i > 0 ? spacing : 0), 0) + 2 * spacing;
+  } else {
+    totalWidth = sizes.reduce((sum, s, i) => sum + s.w + (i > 0 ? spacing : 0), 0) + 2 * spacing;
+  }
   ctx.canvas.width = totalWidth;
   ctx.canvas.height = maxHeight;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   let x = spacing;
   loadedImgs.forEach((img, i) => {
-    ctx.drawImage(img, x, spacing, sizes[i].w, sizes[i].h);
-    if (images[i].label) {
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].label!, x + 4, 16);
+    if (fit) {
+      const rowH = maxHeight - 2 * spacing;
+      const w = scaledWidths[i];
+      ctx.drawImage(img, x, spacing, w, rowH);
+      if (images[i].label) {
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].label!, x + 4, spacing + 16);
+      }
+      if (images[i].description) {
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].description!, x + 4, spacing + rowH - 6);
+      }
+      x += w + spacing;
+    } else {
+      ctx.drawImage(img, x, spacing, sizes[i].w, sizes[i].h);
+      if (images[i].label) {
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].label!, x + 4, 16);
+      }
+      if (images[i].description) {
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].description!, x + 4, sizes[i].h - 6);
+      }
+      x += sizes[i].w + spacing;
     }
-    if (images[i].description) {
-      ctx.font = '12px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].description!, x + 4, sizes[i].h - 6);
-    }
-    x += sizes[i].w + spacing;
   });
 }
 
-function layoutSingleColumn(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
+function layoutSingleColumn(
+  images: ComposeImageItem[],
+  ctx: CanvasRenderingContext2D,
+  loadedImgs: HTMLImageElement[],
+  sizes: { w: number, h: number }[],
+  spacing: number = 0,
+  fit: boolean = false
+) {
   const maxWidth = Math.max(...sizes.map(s => s.w)) + 2 * spacing;
-  const totalHeight = sizes.reduce((sum, s, i) => sum + s.h + (i > 0 ? spacing : 0), 0) + 2 * spacing;
+  let totalHeight;
+  let scaledHeights: number[] = [];
+  if (fit) {
+    // All images get width = maxWidth - 2*spacing, height by aspect ratio
+    const colW = maxWidth - 2 * spacing;
+    scaledHeights = loadedImgs.map(img => Math.round(colW * (img.naturalHeight / img.naturalWidth)));
+    totalHeight = scaledHeights.reduce((sum, h, i) => sum + h + (i > 0 ? spacing : 0), 0) + 2 * spacing;
+  } else {
+    totalHeight = sizes.reduce((sum, s, i) => sum + s.h + (i > 0 ? spacing : 0), 0) + 2 * spacing;
+  }
   ctx.canvas.width = maxWidth;
   ctx.canvas.height = totalHeight;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   let y = spacing;
   loadedImgs.forEach((img, i) => {
-    ctx.drawImage(img, (maxWidth - 2 * spacing - sizes[i].w) / 2 + spacing, y, sizes[i].w, sizes[i].h);
-    if (images[i].label) {
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].label!, (maxWidth - sizes[i].w) / 2 + 4, y + 16);
+    if (fit) {
+      const colW = maxWidth - 2 * spacing;
+      const h = scaledHeights[i];
+      ctx.drawImage(img, (maxWidth - colW) / 2, y, colW, h);
+      if (images[i].label) {
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].label!, (maxWidth - colW) / 2 + 4, y + 16);
+      }
+      if (images[i].description) {
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].description!, (maxWidth - colW) / 2 + 4, y + h - 6);
+      }
+      y += h + spacing;
+    } else {
+      ctx.drawImage(img, (maxWidth - 2 * spacing - sizes[i].w) / 2 + spacing, y, sizes[i].w, sizes[i].h);
+      if (images[i].label) {
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].label!, (maxWidth - sizes[i].w) / 2 + 4, y + 16);
+      }
+      if (images[i].description) {
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].description!, (maxWidth - sizes[i].w) / 2 + 4, y + sizes[i].h - 6);
+      }
+      y += sizes[i].h + spacing;
     }
-    if (images[i].description) {
-      ctx.font = '12px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].description!, (maxWidth - sizes[i].w) / 2 + 4, y + sizes[i].h - 6);
-    }
-    y += sizes[i].h + spacing;
   });
 }
 
-function layoutGrid(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
+function layoutGrid(
+  images: ComposeImageItem[],
+  ctx: CanvasRenderingContext2D,
+  loadedImgs: HTMLImageElement[],
+  sizes: { w: number, h: number }[],
+  spacing: number = 0,
+  fit: boolean = false
+) {
   // Make a square-ish grid
   const n = loadedImgs.length;
   const cols = Math.ceil(Math.sqrt(n));
@@ -230,39 +304,93 @@ function layoutGrid(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, l
   for (let i = 0; i < n; ++i) {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const x = col * (cellW + spacing) + (cellW - sizes[i].w) / 2 + spacing;
-    const y = row * (cellH + spacing) + (cellH - sizes[i].h) / 2 + spacing;
-    ctx.drawImage(loadedImgs[i], x, y, sizes[i].w, sizes[i].h);
-    if (images[i].label) {
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].label!, x + 4, y + 16);
-    }
-    if (images[i].description) {
-      ctx.font = '12px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].description!, x + 4, y + sizes[i].h - 6);
+    const x = col * (cellW + spacing) + spacing;
+    const y = row * (cellH + spacing) + spacing;
+    if (fit) {
+      // Scale and center to fill the cell, cropping overflow
+      const img = loadedImgs[i];
+      const aspectImg = img.naturalWidth / img.naturalHeight;
+      const aspectCell = cellW / cellH;
+      let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+      if (aspectImg > aspectCell) {
+        // Image is wider, crop horizontally
+        sh = img.naturalHeight;
+        sw = sh * aspectCell;
+        sx = (img.naturalWidth - sw) / 2;
+        sy = 0;
+      } else {
+        // Image is taller, crop vertically
+        sw = img.naturalWidth;
+        sh = sw / aspectCell;
+        sx = 0;
+        sy = (img.naturalHeight - sh) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, cellW, cellH);
+      // Draw label/desc at fixed positions
+      if (images[i].label) {
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].label!, x + 4, y + 16);
+      }
+      if (images[i].description) {
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].description!, x + 4, y + cellH - 6);
+      }
+    } else {
+      // Center image in cell, no cropping
+      const imgW = sizes[i].w;
+      const imgH = sizes[i].h;
+      const cx = x + (cellW - imgW) / 2;
+      const cy = y + (cellH - imgH) / 2;
+      ctx.drawImage(loadedImgs[i], cx, cy, imgW, imgH);
+      if (images[i].label) {
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].label!, cx + 4, cy + 16);
+      }
+      if (images[i].description) {
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(images[i].description!, cx + 4, cy + imgH - 6);
+      }
     }
   }
 }
 
-function layoutMasonry(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0) {
+function layoutMasonry(
+  images: ComposeImageItem[],
+  ctx: CanvasRenderingContext2D,
+  loadedImgs: HTMLImageElement[],
+  sizes: { w: number, h: number }[],
+  spacing: number = 0,
+  fit: boolean = false
+) {
   // Simple masonry: assign each image to the shortest column
   const n = loadedImgs.length;
   const cols = Math.ceil(Math.sqrt(n));
+  // Compute colWidths as in non-fit mode
   const colWidths = Array(cols).fill(0).map((_, i) => Math.max(...sizes.filter((_, idx) => idx % cols === i).map(s => s.w), 0));
   // Add spacing to colWidths except last col
   for (let i = 0; i < cols - 1; ++i) colWidths[i] += spacing;
   const colHeights = Array(cols).fill(0);
-  const positions: { x: number, y: number }[] = [];
+  const positions: { x: number, y: number, w: number, h: number, imgIdx: number, col: number }[] = [];
   for (let i = 0; i < n; ++i) {
     // Find shortest column
     let minCol = 0;
     for (let c = 1; c < cols; ++c) if (colHeights[c] < colHeights[minCol]) minCol = c;
     const x = colWidths.slice(0, minCol).reduce((a, b) => a + b, 0);
+    const w = colWidths[minCol] - (minCol < cols - 1 ? spacing : 0);
     const y = colHeights[minCol] + (colHeights[minCol] > 0 ? spacing : 0);
-    positions.push({ x, y });
-    colHeights[minCol] += sizes[i].h + (colHeights[minCol] > 0 ? spacing : 0);
+    // For fit: scale image to fill column width, height by aspect ratio
+    // For non-fit: use original size
+    let drawW = sizes[i].w, drawH = sizes[i].h;
+    if (fit) {
+      drawW = w;
+      drawH = Math.round(drawW * (loadedImgs[i].naturalHeight / loadedImgs[i].naturalWidth));
+    }
+    positions.push({ x, y, w: drawW, h: drawH, imgIdx: i, col: minCol });
+    colHeights[minCol] += drawH + (colHeights[minCol] > 0 ? spacing : 0);
   }
   const totalWidth = colWidths.reduce((a, b) => a + b, 0) + 2 * spacing;
   const totalHeight = Math.max(...colHeights) + 2 * spacing;
@@ -270,16 +398,17 @@ function layoutMasonry(images: ComposeImageItem[], ctx: CanvasRenderingContext2D
   ctx.canvas.height = totalHeight;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   for (let i = 0; i < n; ++i) {
-    ctx.drawImage(loadedImgs[i], positions[i].x + spacing, positions[i].y + spacing, sizes[i].w, sizes[i].h);
-    if (images[i].label) {
+    const { x, y, w, h, imgIdx } = positions[i];
+    ctx.drawImage(loadedImgs[imgIdx], x + spacing, y + spacing, w, h);
+    if (images[imgIdx].label) {
       ctx.font = 'bold 14px sans-serif';
       ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].label!, positions[i].x + 4, positions[i].y + 16);
+      ctx.fillText(images[imgIdx].label!, x + spacing + 4, y + spacing + 16);
     }
-    if (images[i].description) {
+    if (images[imgIdx].description) {
       ctx.font = '12px sans-serif';
       ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].description!, positions[i].x + 4, positions[i].y + sizes[i].h - 6);
+      ctx.fillText(images[imgIdx].description!, x + spacing + 4, y + spacing + h - 6);
     }
   }
 }

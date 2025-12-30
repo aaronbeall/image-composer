@@ -22,6 +22,7 @@ function App() {
   const [normalizeSize, setNormalizeSize] = useState(true);
   const [layout, setLayout] = useState<LayoutType>('grid');
   const [spacing, setSpacing] = useState(3); // 0-9, default 3
+  const [fit, setFit] = useState(false); // new fit option
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
 
@@ -364,6 +365,12 @@ function App() {
                 <option value="single-row">Single Row</option>
               </select>
             </span>
+            {/* Show fit option for grid, masonry, single-row, and single-column */}
+            {(layout === 'grid' || layout === 'masonry' || layout === 'single-row' || layout === 'single-column') && (
+              <label style={{ marginLeft: 8 }}>
+                <input type="checkbox" checked={fit} onChange={e => setFit(e.target.checked)} /> Fit
+              </label>
+            )}
             <span>
               Spacing:
               <select value={spacing} onChange={e => setSpacing(Number(e.target.value))} style={{ marginLeft: 8 }}>
@@ -379,6 +386,7 @@ function App() {
               normalizeSize={normalizeSize}
               layout={layout}
               spacing={spacing}
+              fit={fit}
               style={{ margin: '0 auto 0 auto', width: '100%', maxWidth: 900 }}
             />
           </div>
