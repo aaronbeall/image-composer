@@ -117,9 +117,14 @@ function App() {
   // Use CSS flexbox for layout
   return (
     <div className="app-container">
-      <h1>Image Composer</h1>
-      <div className="main-content-row">
-        <div className="controls-col">
+      <header className="app-header-bar">
+        <span className="app-header-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <ImagePlus size={24} style={{ color: '#8f94fb', marginRight: 2, marginBottom: 2 }} />
+          Image Composer
+        </span>
+      </header>
+      <div className="main-content-row" style={{ display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box', gap: 24 }}>
+        <div className="controls-col" style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minWidth: 0, boxSizing: 'border-box' }}>
           <div
             ref={dropAreaRef}
             className="drop-area"
@@ -341,8 +346,7 @@ function App() {
           </div>
         </div>
 
-        {/* Responsive: row on large screens, column on small */}
-        <div className="preview-col">
+        <div className="preview-col" style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', gap: 16 }}>
           <div className="options-toolbox" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
             <label>
               <input type="checkbox" checked={normalizeSize} onChange={e => setNormalizeSize(e.target.checked)} /> Normalize size
