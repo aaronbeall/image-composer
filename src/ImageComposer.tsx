@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Download } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Download, Share2 } from 'lucide-react';
 
 export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'collage';
 
@@ -50,6 +50,7 @@ function getNormalizedSize(imgs: HTMLImageElement[], mode: NormalizeMode = 'both
 
 export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, backgroundColor = 'transparent', onExport, style }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -140,10 +141,37 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     if (onExport) onExport(dataUrl);
   };
 
+  // Browser-native share (Web Share API with files)
+  const handleShare = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !navigator.canShare || !navigator.share) return;
+    setIsSharing(true);
+    try {
+      // Convert canvas to blob
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Failed to create image blob');
+      const file = new File([blob], 'composed-image.png', { type: 'image/png' });
+      if (!navigator.canShare({ files: [file] })) {
+        alert('Sharing files is not supported on this device/browser.');
+        setIsSharing(false);
+        return;
+      }
+      await navigator.share({
+        files: [file],
+        title: 'Composed Image',
+        text: 'Check out this composed image!'
+      });
+    } catch (err) {
+      console.log('Sharing failed: ' + (err instanceof Error ? err.message : err));
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
     <div style={{ textAlign: 'center', ...style }}>
       <canvas ref={canvasRef} style={{ maxWidth: '100%', border: '1px solid #444', background: '#222', marginBottom: 8 }} />
-      <div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
         <button
           onClick={handleExport}
           style={{
@@ -156,7 +184,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
             fontSize: 16,
             cursor: 'pointer',
             boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-            margin: '8px 0',
+            margin: 0,
             transition: 'background 0.2s',
             display: 'inline-flex',
             alignItems: 'center',
@@ -166,6 +194,33 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
           <Download size={20} style={{ marginRight: 6 }} />
           Export as Image
         </button>
+        {typeof navigator !== 'undefined' && 'canShare' in navigator && 'share' in navigator && (
+          <button
+            onClick={handleShare}
+            disabled={isSharing}
+            style={{
+              background: 'linear-gradient(90deg, #8f94fb 0%, #4e54c8 100%)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 4,
+              padding: '8px 20px',
+              fontWeight: 600,
+              fontSize: 16,
+              cursor: isSharing ? 'not-allowed' : 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              margin: 0,
+              transition: 'background 0.2s',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
+              opacity: isSharing ? 0.7 : 1,
+            }}
+            title="Share composed image"
+          >
+            <Share2 size={20} style={{ marginRight: 6 }} />
+            {isSharing ? 'Sharing...' : 'Share'}
+          </button>
+        )}
       </div>
     </div>
   );
