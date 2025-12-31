@@ -844,18 +844,20 @@ function LayoutTypeSelector({ layout, setLayout }: LayoutTypeSelectorProps) {
   return (
     <div className="flex flex-row flex-wrap gap-2">
       {layouts.map(l => (
-        <div className="flex flex-col items-center" key={l.key}>
-          <Button
-            variant={layout === l.key ? 'secondary' : 'ghost'}
-            size="icon"
-            aria-label={l.label}
-            onClick={() => setLayout(l.key)}
-            className={layout === l.key ? 'ring-2 ring-indigo-400 bg-indigo-900 text-indigo-300' : ''}
-          >
-            {l.icon}
-          </Button>
-          <span className="text-[10px] mt-1">{l.label}</span>
-        </div>
+        <Button
+          key={l.key}
+          variant={layout === l.key ? 'secondary' : 'ghost'}
+          size="icon"
+          aria-label={l.label}
+          onClick={() => setLayout(l.key)}
+          className={
+            (layout === l.key ? 'ring-2 ring-indigo-400 bg-indigo-900 text-indigo-300 ' : '') +
+            'flex flex-col items-center justify-center min-w-[56px] min-h-[48px] px-2 py-1'
+          }
+        >
+          <span>{l.icon}</span>
+          <span className="text-[10px] block">{l.label}</span>
+        </Button>
       ))}
     </div>
   );
