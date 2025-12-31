@@ -168,6 +168,7 @@ export default function AppNewLayout() {
         </div>
         <div className="flex items-center gap-2">
           {images.length > 0 && <>
+            {/* Large screens: full buttons */}
             <button
               onClick={() => {
                 if (canvasInfo.getImageData) {
@@ -232,6 +233,73 @@ export default function AppNewLayout() {
                 title="Share composed image"
               >
                 <Share2 size={18} className="mr-1" />{isSharing ? 'Sharing...' : 'Share'}
+              </button>
+            )}
+            {/* Small screens: icon-only buttons */}
+            <button
+              onClick={() => {
+                if (canvasInfo.getImageData) {
+                  const a = document.createElement('a');
+                  a.href = canvasInfo.getImageData();
+                  a.download = 'composed-image.png';
+                  a.click();
+                }
+              }}
+              className="inline-flex sm:hidden p-2 rounded-full bg-gradient-to-r from-indigo-600 to-indigo-400 text-white shadow hover:from-indigo-700 hover:to-indigo-500 transition"
+              title="Download composed image"
+            >
+              <Download size={20} />
+            </button>
+            <button
+              onClick={async () => {
+                if (canvasInfo.getImageBlob) {
+                  setIsCopying(true);
+                  try {
+                    const blob = await canvasInfo.getImageBlob();
+                    if (blob) {
+                      await navigator.clipboard.write([
+                        new window.ClipboardItem({ 'image/png': blob })
+                      ]);
+                    }
+                  } finally {
+                    setIsCopying(false);
+                  }
+                }
+              }}
+              className="inline-flex sm:hidden p-2 rounded-full bg-gradient-to-r from-indigo-600 to-indigo-400 text-white shadow hover:from-indigo-700 hover:to-indigo-500 transition disabled:opacity-60"
+              disabled={isCopying}
+              title="Copy image to clipboard"
+            >
+              <ClipboardIcon size={20} />
+            </button>
+            {typeof navigator !== 'undefined' && 'canShare' in navigator && 'share' in navigator && (
+              <button
+                onClick={async () => {
+                  if (canvasInfo.getImageBlob) {
+                    setIsSharing(true);
+                    try {
+                      const blob = await canvasInfo.getImageBlob();
+                      if (!blob) return;
+                      const file = new File([blob], 'composed-image.png', { type: 'image/png' });
+                      if (!navigator.canShare({ files: [file] })) {
+                        alert('Sharing files is not supported on this device/browser.');
+                        return;
+                      }
+                      await navigator.share({
+                        files: [file],
+                        title: 'Composed Image',
+                        text: 'Check out this composed image!'
+                      });
+                    } finally {
+                      setIsSharing(false);
+                    }
+                  }
+                }}
+                className="inline-flex sm:hidden p-2 rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600 text-white shadow hover:from-indigo-500 hover:to-indigo-700 transition disabled:opacity-60"
+                disabled={isSharing}
+                title="Share composed image"
+              >
+                <Share2 size={20} />
               </button>
             )}
           </>}
@@ -700,9 +768,327 @@ export default function AppNewLayout() {
           <DrawerContent className="lg:hidden bg-neutral-950 border-t border-neutral-800 rounded-t-2xl p-0 max-h-[80vh] flex flex-col">
             <Tabs value={drawerTab} onValueChange={setDrawerTab} className="w-full h-full flex flex-col">
               <TabsList className="hidden" />
-              <TabsContent value="images"><div className="p-4">Images content</div></TabsContent>
-              <TabsContent value="layout"><div className="p-4">Layout content</div></TabsContent>
-              <TabsContent value="style"><div className="p-4">Style content</div></TabsContent>
+              <TabsContent value="images">
+                <div className="p-4 flex flex-col gap-3">
+                  <Button variant="default" size="lg" onClick={handleBrowse} className="flex items-center gap-2 px-6 py-2 text-base font-semibold w-full justify-center">
+                    <ImagePlus size={20} /> Browse
+                  </Button>
+                  {images.length > 0 && (
+                    <div className="flex flex-row gap-2 overflow-x-auto pb-2">
+                      {images.map((img, idx) => (
+                        <div key={img.id} className="relative min-w-[72px] max-w-[90px] flex flex-col items-center bg-neutral-800 rounded-lg shadow-md p-1 mx-1">
+                          <img
+                            src={img.src}
+                            alt={`Image ${idx + 1}`}
+                            className={`w-[60px] h-[60px] object-cover rounded-md mb-1 bg-neutral-900 ${img.hidden ? 'opacity-30 grayscale' : ''}`}
+                          />
+                          <div className="flex flex-row items-center gap-1 w-full justify-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-neutral-400"
+                              title={img.hidden ? 'Show image' : 'Hide image'}
+                              onClick={() => setImages(prev => prev.map((im, i) => i === idx ? { ...im, hidden: !im.hidden } : im))}
+                            >
+                              {img.hidden ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-red-400"
+                              title="Remove image"
+                              onClick={() => setImages(prev => prev.filter((_, i) => i !== idx))}
+                            >
+                              <X size={16} />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+              <TabsContent value="layout">
+                <div className="p-4">
+                  {/* Layout options (reuse sidebar controls) */}
+                  {/* Layout type selection */}
+                  <div className="font-semibold text-sm mb-2">Layout Type</div>
+                  <div className="flex flex-row flex-wrap gap-2 mb-4">
+                    {/* ...existing layout type buttons... */}
+                    {/* Copy from sidebar layout type selection */}
+                    <div className="flex flex-col items-center">
+                      <Button
+                        variant={layout === 'grid' ? 'secondary' : 'ghost'}
+                        size="icon"
+                        aria-label="Grid"
+                        onClick={() => setLayout('grid')}
+                        className={layout === 'grid' ? 'ring-2 ring-indigo-400 bg-indigo-900 text-indigo-300' : ''}
+                      >
+                        {/* Grid: 3x3 boxes */}
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                          {[0, 1, 2].map(r => [0, 1, 2].map(c => (
+                            <rect key={r + ',' + c} x={2 + c * 5.5} y={2 + r * 5.5} width="4" height="4" rx="1" fill="currentColor" />
+                          )))}
+                        </svg>
+                      </Button>
+                      <span className="text-[10px] mt-1">Grid</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <Button
+                        variant={layout === 'packed' ? 'secondary' : 'ghost'}
+                        size="icon"
+                        aria-label="Packed"
+                        onClick={() => setLayout('packed')}
+                        className={layout === 'packed' ? 'ring-2 ring-indigo-400 bg-indigo-900 text-indigo-300' : ''}
+                      >
+                        {/* Packed: 3x3 but uneven sizes */}
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                          <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor" />
+                          <rect x="9" y="2" width="4" height="4" rx="1" fill="currentColor" />
+                          <rect x="14" y="2" width="3" height="7" rx="1" fill="currentColor" />
+                          <rect x="2" y="9" width="4" height="4" rx="1" fill="currentColor" />
+                          <rect x="7" y="8" width="7" height="6" rx="1" fill="currentColor" />
+                          <rect x="2" y="15" width="5" height="3" rx="1" fill="currentColor" />
+                          <rect x="9" y="15" width="8" height="3" rx="1" fill="currentColor" />
+                        </svg>
+                      </Button>
+                      <span className="text-[10px] mt-1">Packed</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <Button
+                        variant={layout === 'cluster' ? 'secondary' : 'ghost'}
+                        size="icon"
+                        aria-label="Cluster"
+                        onClick={() => setLayout('cluster')}
+                        className={layout === 'cluster' ? 'ring-2 ring-indigo-400 bg-indigo-900 text-indigo-300' : ''}
+                      >
+                        {/* Cluster: 1 large box with 4 small boxes on each side */}
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                          {/* Center large box */}
+                          <rect x="7" y="7" width="6" height="6" rx="1" fill="currentColor" />
+                          {/* Top row small boxes */}
+                          <rect x="4" y="3" width="3" height="3" rx="0.7" fill="currentColor" />
+                          <rect x="13" y="3" width="3" height="3" rx="0.7" fill="currentColor" />
+                          {/* Left column small boxes */}
+                          <rect x="3" y="8" width="3" height="3" rx="0.7" fill="currentColor" />
+                          {/* Right column small boxes */}
+                          <rect x="14" y="8" width="3" height="3" rx="0.7" fill="currentColor" />
+                          {/* Bottom row small boxes */}
+                          <rect x="4" y="14" width="3" height="3" rx="0.7" fill="currentColor" />
+                          <rect x="13" y="14" width="3" height="3" rx="0.7" fill="currentColor" />
+                        </svg>
+                      </Button>
+                      <span className="text-[10px] mt-1">Cluster</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <Button
+                        variant={layout === 'masonry' ? 'secondary' : 'ghost'}
+                        size="icon"
+                        aria-label="Masonry"
+                        onClick={() => setLayout('masonry')}
+                        className={layout === 'masonry' ? 'ring-2 ring-indigo-400 bg-indigo-900 text-indigo-300' : ''}
+                      >
+                        {/* Masonry: 3 lanes with varying height boxes stacked */}
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                          {/* Lane 1 */}
+                          <rect x="2" y="2" width="4" height="7" rx="1" fill="currentColor" />
+                          <rect x="2" y="10" width="4" height="6" rx="1" fill="currentColor" />
+                          {/* Lane 2 */}
+                          <rect x="8" y="2" width="4" height="4" rx="1" fill="currentColor" />
+                          <rect x="8" y="8" width="4" height="8" rx="1" fill="currentColor" />
+                          {/* Lane 3 */}
+                          <rect x="14" y="2" width="4" height="12" rx="1" fill="currentColor" />
+                        </svg>
+                      </Button>
+                      <span className="text-[10px] mt-1">Masonry</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <Button
+                        variant={layout === 'single-column' ? 'secondary' : 'ghost'}
+                        size="icon"
+                        aria-label="Column"
+                        onClick={() => setLayout('single-column')}
+                        className={layout === 'single-column' ? 'ring-2 ring-indigo-400 bg-indigo-900 text-indigo-300' : ''}
+                      >
+                        {/* Column icon: three vertically stacked boxes */}
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <rect x="7" y="3" width="6" height="4" rx="1" fill="currentColor" />
+                          <rect x="7" y="8" width="6" height="4" rx="1" fill="currentColor" />
+                          <rect x="7" y="13" width="6" height="4" rx="1" fill="currentColor" />
+                        </svg>
+                      </Button>
+                      <span className="text-[10px] mt-1">Column</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <Button
+                        variant={layout === 'single-row' ? 'secondary' : 'ghost'}
+                        size="icon"
+                        aria-label="Row"
+                        onClick={() => setLayout('single-row')}
+                        className={layout === 'single-row' ? 'ring-2 ring-indigo-400 bg-indigo-900 text-indigo-300' : ''}
+                      >
+                        {/* Row icon: three horizontally stacked boxes */}
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <rect x="3" y="7" width="4" height="6" rx="1" fill="currentColor" />
+                          <rect x="8" y="7" width="4" height="6" rx="1" fill="currentColor" />
+                          <rect x="13" y="7" width="4" height="6" rx="1" fill="currentColor" />
+                        </svg>
+                      </Button>
+                      <span className="text-[10px] mt-1">Row</span>
+                    </div>
+                  </div>
+                  {/* Spacing slider */}
+                  <div className="flex flex-col gap-1 mb-2">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Spacing</span>
+                      <span className="text-neutral-400 text-xs">{spacing}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={spacing}
+                      onChange={e => setSpacing(Number(e.target.value))}
+                      className="w-full accent-indigo-400"
+                    />
+                  </div>
+                  {/* Scale slider */}
+                  <div className="flex flex-col gap-1 mb-2">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Scale</span>
+                      <span className="text-neutral-400 text-xs">{scale}%</span>
+                    </label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={100}
+                      value={scale}
+                      onChange={e => setScale(Number(e.target.value))}
+                      className="w-full accent-indigo-400"
+                    />
+                  </div>
+                  {/* Toggles */}
+                  <div className="flex flex-col gap-2 mt-2 mb-2">
+                    <label className="flex items-center gap-2 text-xs font-medium">
+                      <input type="checkbox" checked={normalizeSize} onChange={e => setNormalizeSize(e.target.checked)} className="accent-indigo-500" />
+                      Normalize size
+                    </label>
+                    {(layout === 'grid' || layout === 'masonry' || layout === 'single-row' || layout === 'single-column') && (
+                      <label className="flex items-center gap-2 text-xs font-medium">
+                        <input type="checkbox" checked={fit} onChange={e => setFit(e.target.checked)} className="accent-indigo-500" />
+                        Fit
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+              <TabsContent value="style">
+                <div className="p-4">
+                  {/* Style options (reuse sidebar controls) */}
+                  {/* Background selector (existing) */}
+                  <div>
+                    <div className="font-semibold text-sm mb-2">Background</div>
+                    <div className="flex flex-row flex-wrap gap-2 items-center">
+                      {/* Transparent */}
+                      <button
+                        onClick={() => setBgColor('transparent')}
+                        className={`w-7 h-7 rounded border ${bgColor === 'transparent' ? 'border-2 border-indigo-400 shadow' : 'border-neutral-700'} bg-[repeating-conic-gradient(#ccc_0%_25%,_#fff_0%_50%)] bg-[length:10px_10px] relative outline-none`}
+                        title="Transparent"
+                      >
+                        <span className="absolute left-1 top-2 text-xs text-neutral-400 pointer-events-none">⌀</span>
+                      </button>
+                      {/* Presets */}
+                      {[
+                        { name: 'White', value: '#fff' },
+                        { name: 'Light Gray', value: '#eee' },
+                        { name: 'Gray', value: '#888' },
+                        { name: 'Black', value: '#222' },
+                        { name: 'Blue', value: '#4e54c8' },
+                        { name: 'Red', value: '#e44' },
+                        { name: 'Yellow', value: '#ffe066' },
+                        { name: 'Green', value: '#4caf50' },
+                      ].map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setBgColor(opt.value)}
+                          className={`w-7 h-7 rounded border ${bgColor === opt.value ? 'border-2 border-indigo-400 shadow' : 'border-neutral-700'} mx-0 cursor-pointer inline-block relative outline-none px-0`}
+                          style={{ background: opt.value }}
+                          title={opt.name}
+                        />
+                      ))}
+                      {/* Custom color */}
+                      <label
+                        className={`w-7 h-7 rounded border border-neutral-700 mx-0 cursor-pointer relative outline-none inline-block flex items-center justify-center ${bgColor !== 'transparent' && ![
+                          '#fff', '#eee', '#888', '#222', '#4e54c8', '#e44', '#ffe066', '#4caf50'].includes(bgColor) ? 'border-2 border-indigo-400 shadow' : ''}`}
+                        title="Custom color"
+                        style={{ background: bgColor !== 'transparent' ? bgColor : 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 10px 10px' }}
+                      >
+                        <span className="absolute left-1.5 top-1.5 text-base text-neutral-700 pointer-events-none">🎨</span>
+                        <input
+                          type="color"
+                          value={bgColor !== 'transparent' ? bgColor : '#ffffff'}
+                          onChange={e => setBgColor(e.target.value)}
+                          className="absolute left-0 top-0 w-7 h-7 opacity-0 cursor-pointer border-none p-0 z-10"
+                          tabIndex={-1}
+                          aria-label="Custom color"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                  {/* Border selector (stub) */}
+                  <div className="flex flex-col gap-2 mt-4">
+                    <label className="flex items-center gap-2 text-xs font-medium">
+                      <input
+                        type="checkbox"
+                        className="accent-indigo-500"
+                        checked={borderEnabled}
+                        onChange={e => setBorderEnabled(e.target.checked)}
+                      />
+                      Border
+                    </label>
+                    {borderEnabled && (
+                      <div className="flex flex-row gap-2 ml-6 items-center">
+                        <span className="text-xs">Size</span>
+                        <input type="range" min={0} max={20} className="w-24 accent-indigo-400" />
+                        <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
+                      </div>
+                    )}
+                  </div>
+                  {/* Corner radius selector (stub) */}
+                  <div className="flex flex-col gap-2 mt-2">
+                    <label className="flex items-center gap-2 text-xs font-medium">
+                      <span>Corner Radius</span>
+                      <input type="range" min={0} max={40} className="w-32 accent-indigo-400" />
+                    </label>
+                  </div>
+                  {/* Drop shadow selector (stub) */}
+                  <div className="flex flex-col gap-2 mt-2">
+                    <label className="flex items-center gap-2 text-xs font-medium">
+                      <input
+                        type="checkbox"
+                        className="accent-indigo-500"
+                        checked={shadowEnabled}
+                        onChange={e => setShadowEnabled(e.target.checked)}
+                      />
+                      Drop Shadow
+                    </label>
+                    {shadowEnabled && (
+                      <div className="flex flex-row flex-wrap gap-2 ml-6 items-center">
+                        <span className="text-xs">Color</span>
+                        <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
+                        <span className="text-xs">Opacity</span>
+                        <input type="range" min={0} max={100} className="w-16 accent-indigo-400" />
+                        <span className="text-xs">Angle</span>
+                        <input type="range" min={0} max={360} className="w-16 accent-indigo-400" />
+                        <span className="text-xs">Distance</span>
+                        <input type="range" min={0} max={40} className="w-16 accent-indigo-400" />
+                        <span className="text-xs">Blur</span>
+                        <input type="range" min={0} max={40} className="w-16 accent-indigo-400" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
             </Tabs>
           </DrawerContent>
         </Drawer>
