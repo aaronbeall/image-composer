@@ -552,68 +552,70 @@ function layoutMasonry(
 
 
 // Maximal rectangles bin-packing: place images in any available gap, splitting gaps as needed
+// Blackpawn binary tree rectangle packing algorithm
 function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0, backgroundColor: string = 'transparent') {
-  // Estimate bin width as the max of sqrt(total area) and max image width
+  // Estimate bin width and height
   const totalArea = sizes.reduce((a, s) => a + s.w * s.h, 0);
   const maxW = Math.max(...sizes.map(s => s.w));
-  // Add spacing to binWidth estimate
-  const binWidth = Math.max(Math.ceil(Math.sqrt(totalArea)), maxW) + spacing * (sizes.length - 1);
-  // Start with one big free rectangle
-  const freeRects = [{ x: 0, y: 0, w: binWidth, h: 100000 }]; // h is "infinite" for now
-  const placements: { x: number, y: number }[] = Array(sizes.length);
-  let maxY = 0;
-  for (let i = 0; i < sizes.length; ++i) {
-    const { w, h } = sizes[i];
-    // Find the first free rect that fits
-    let bestIdx = -1, bestY = Infinity, bestX = Infinity;
-    for (let j = 0; j < freeRects.length; ++j) {
-      const r = freeRects[j];
-      if (w <= r.w && h <= r.h) {
-        // Prefer lowest y, then leftmost x
-        if (r.y < bestY || (r.y === bestY && r.x < bestX)) {
-          bestIdx = j; bestY = r.y; bestX = r.x;
-        }
-      }
-    }
-    if (bestIdx === -1) {
-      // No fit found, extend canvas downward
-      const minY = Math.min(...freeRects.map(r => r.y + r.h));
-      freeRects.push({ x: 0, y: minY + spacing, w: binWidth, h: 100000 });
-      i--; // retry this image
-      continue;
-    }
-    const spot = freeRects[bestIdx];
-    placements[i] = { x: spot.x, y: spot.y };
-    maxY = Math.max(maxY, spot.y + h);
-    // Split the free rect into up to 2 new rects (right and below)
-    const newRects = [];
-    if (spot.w > w + spacing) newRects.push({ x: spot.x + w + spacing, y: spot.y, w: spot.w - w - spacing, h: h });
-    if (spot.h > h + spacing) newRects.push({ x: spot.x, y: spot.y + h + spacing, w: spot.w, h: spot.h - h - spacing });
-    // Remove used rect, add new
-    freeRects.splice(bestIdx, 1, ...newRects);
-    // Merge free rects (simple pass, not optimal)
-    for (let a = 0; a < freeRects.length; ++a) {
-      for (let b = a + 1; b < freeRects.length; ++b) {
-        const A = freeRects[a], B = freeRects[b];
-        // Merge horizontally
-        if (A.y === B.y && A.h === B.h && (A.x + A.w === B.x || B.x + B.w === A.x)) {
-          const merged = { x: Math.min(A.x, B.x), y: A.y, w: A.w + B.w, h: A.h };
-          freeRects.splice(b, 1);
-          freeRects[a] = merged;
-          a = -1; break;
-        }
-        // Merge vertically
-        if (A.x === B.x && A.w === B.w && (A.y + A.h === B.y || B.y + B.h === A.y)) {
-          const merged = { x: A.x, y: Math.min(A.y, B.y), w: A.w, h: A.h + B.h };
-          freeRects.splice(b, 1);
-          freeRects[a] = merged;
-          a = -1; break;
-        }
-      }
+  const maxH = Math.max(...sizes.map(s => s.h));
+  let binW = Math.max(Math.ceil(Math.sqrt(totalArea)), maxW);
+  let binH = Math.max(Math.ceil(totalArea / binW), maxH);
+  // Add spacing to bin size
+  binW += spacing * 2;
+  binH += spacing * 2;
+
+  // Node structure for binary tree
+  type Node = { x: number, y: number, w: number, h: number, used: boolean, down: Node | null, right: Node | null, imgIdx: number | null };
+  function makeNode(x: number, y: number, w: number, h: number): Node {
+    return { x, y, w, h, used: false, down: null, right: null, imgIdx: null };
+  }
+
+  // Insert function as per Blackpawn
+  function insert(node: Node, w: number, h: number, idx: number): { x: number, y: number } | null {
+    if (node.used) {
+      // Try right then down
+      return insert(node.right!, w, h, idx) || insert(node.down!, w, h, idx);
+    } else if (w <= node.w && h <= node.h) {
+      // Fits, split node
+      node.used = true;
+      node.imgIdx = idx;
+      node.down = makeNode(node.x, node.y + h + spacing, node.w, node.h - h - spacing);
+      node.right = makeNode(node.x + w + spacing, node.y, node.w - w - spacing, h);
+      return { x: node.x, y: node.y };
+    } else {
+      return null;
     }
   }
-  ctx.canvas.width = binWidth + 2 * spacing;
-  ctx.canvas.height = maxY + 2 * spacing;
+
+  // Try to pack all images, grow bin if needed
+  const placements = Array(sizes.length);
+  let success = false;
+  let growTries = 0;
+  while (!success && growTries < 10) {
+    // Reset tree
+    const root = makeNode(spacing, spacing, binW - 2 * spacing, binH - 2 * spacing);
+    let failed = false;
+    for (let i = 0; i < sizes.length; ++i) {
+      const { w, h } = sizes[i];
+      const pos = insert(root, w, h, i);
+      if (!pos) {
+        failed = true;
+        break;
+      }
+      placements[i] = pos;
+    }
+    if (failed) {
+      // Grow bin: try to grow width or height
+      if (binW <= binH) binW = Math.round(binW * 1.2);
+      else binH = Math.round(binH * 1.2);
+      growTries++;
+    } else {
+      success = true;
+    }
+  }
+  // Set canvas size
+  ctx.canvas.width = binW;
+  ctx.canvas.height = binH;
   // Fill background after resizing
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   if (backgroundColor && backgroundColor !== 'transparent') {
@@ -623,10 +625,10 @@ function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D,
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.restore();
   }
-  // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // already handled
+  // Draw images
   for (let i = 0; i < sizes.length; ++i) {
     const { x, y } = placements[i];
-    ctx.drawImage(loadedImgs[i], x + spacing, y + spacing, sizes[i].w, sizes[i].h);
+    ctx.drawImage(loadedImgs[i], x, y, sizes[i].w, sizes[i].h);
     if (images[i].label) {
       ctx.font = 'bold 14px sans-serif';
       ctx.fillStyle = '#fff';

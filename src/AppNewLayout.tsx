@@ -350,7 +350,7 @@ export default function AppNewLayout() {
         <div className={cn('hidden lg:block bg-neutral-950 border-r border-neutral-800 transition-all duration-200', sidebarOpen ? 'w-64' : 'w-0', 'overflow-hidden')}>
           <div className="h-full p-4">
             {activeTab === 'images' && (
-              <div>
+              <div className="flex flex-col h-full">
                 {/* Drop area and instructions */}
                 <div
                   ref={dropAreaRef}
@@ -375,13 +375,15 @@ export default function AppNewLayout() {
                     </div>
                   </div>
                 </div>
-                {/* Image tile list */}
-                <ImageTileList
-                  images={images}
-                  onToggleHide={idx => setImages(prev => prev.map((im, i) => i === idx ? { ...im, hidden: !im.hidden } : im))}
-                  onRemove={idx => setImages(prev => prev.filter((_, i) => i !== idx))}
-                  size="large"
-                />
+                {/* Image tile list, scrollable */}
+                <div className="flex-1 min-h-0 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 220px)' }}>
+                  <ImageTileList
+                    images={images}
+                    onToggleHide={idx => setImages(prev => prev.map((im, i) => i === idx ? { ...im, hidden: !im.hidden } : im))}
+                    onRemove={idx => setImages(prev => prev.filter((_, i) => i !== idx))}
+                    size="large"
+                  />
+                </div>
               </div>
             )}
             {activeTab === 'layout' && (
