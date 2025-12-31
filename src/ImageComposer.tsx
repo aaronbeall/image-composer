@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Download, Share2 } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
 
-export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'collage';
+export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'cluster';
 
 export interface ComposeImageItem {
   src: string;
@@ -18,8 +17,7 @@ interface ImageComposerProps {
   spacing?: number; // 0-100, relative to avg image size
   fit?: boolean; // new fit option for grid/masonry
   backgroundColor?: string;
-  onExport?: (dataUrl: string) => void;
-  onUpdate(size: { width: number; height: number }): void;
+  onUpdate(info: { width: number; height: number; getImageData: () => string; getImageBlob: () => Promise<Blob | null>; }): void;
   style?: React.CSSProperties;
   scale?: number;
 }
@@ -50,9 +48,8 @@ function getNormalizedSize(imgs: HTMLImageElement[], mode: NormalizeMode = 'both
   };
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, backgroundColor = 'transparent', onExport, style, scale = 1, onUpdate }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, backgroundColor = 'transparent', style, scale = 1, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isSharing, setIsSharing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,7 +117,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
         case 'packed':
           layoutPacked(images, ctx, loadedImgs, sizes, spacingPx, backgroundColor);
           break;
-        case 'collage':
+        case 'cluster':
           layoutCollage(images, ctx, loadedImgs, sizes, spacingPx, backgroundColor);
           break;
         default:
@@ -133,100 +130,29 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       }
     };
     run();
-    const { width, height } = canvasRef.current || { width: 0, height: 0 };
-    onUpdate({ width, height });
+    const canvas = canvasRef.current;
+    onUpdate({
+      width: canvas?.width ?? 0,
+      height: canvas?.height ?? 0,
+      getImageData: () => canvas?.toDataURL('image/png') ?? '',
+      getImageBlob: () => new Promise(resolve => canvas?.toBlob(resolve, 'image/png')),
+    });
     return () => { isMounted = false; };
   }, [images, normalizeSize, layout, spacing, fit, backgroundColor, scale, onUpdate]);
 
-  const handleExport = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL('image/png');
-    if (onExport) onExport(dataUrl);
-  };
-
-  // Browser-native share (Web Share API with files)
-  const handleShare = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !navigator.canShare || !navigator.share) return;
-    setIsSharing(true);
-    try {
-      // Convert canvas to blob
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
-      if (!blob) throw new Error('Failed to create image blob');
-      const file = new File([blob], 'composed-image.png', { type: 'image/png' });
-      if (!navigator.canShare({ files: [file] })) {
-        alert('Sharing files is not supported on this device/browser.');
-        setIsSharing(false);
-        return;
-      }
-      await navigator.share({
-        files: [file],
-        title: 'Composed Image',
-        text: 'Check out this composed image!'
-      });
-    } catch (err) {
-      console.log('Sharing failed: ' + (err instanceof Error ? err.message : err));
-    } finally {
-      setIsSharing(false);
-    }
-  };
-
   return (
-    <div style={{ textAlign: 'center', ...style }}>
-      <canvas ref={canvasRef} style={{ maxWidth: '100%', border: '1px solid #444', background: '#222', marginBottom: 8 }} />
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 8 }}>
-        <button
-          onClick={handleExport}
-          style={{
-            background: 'linear-gradient(90deg, #4e54c8 0%, #8f94fb 100%)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 4,
-            padding: '8px 20px',
-            fontWeight: 600,
-            fontSize: 16,
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-            margin: 0,
-            transition: 'background 0.2s',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 10,
-          }}
-        >
-          <Download size={20} style={{ marginRight: 6 }} />
-          Export as Image
-        </button>
-        {typeof navigator !== 'undefined' && 'canShare' in navigator && 'share' in navigator && (
-          <button
-            onClick={handleShare}
-            disabled={isSharing}
-            style={{
-              background: 'linear-gradient(90deg, #8f94fb 0%, #4e54c8 100%)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 4,
-              padding: '8px 20px',
-              fontWeight: 600,
-              fontSize: 16,
-              cursor: isSharing ? 'not-allowed' : 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-              margin: 0,
-              transition: 'background 0.2s',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 10,
-              opacity: isSharing ? 0.7 : 1,
-            }}
-            title="Share composed image"
-          >
-            <Share2 size={20} style={{ marginRight: 6 }} />
-            {isSharing ? 'Sharing...' : 'Share'}
-          </button>
-        )}
-      </div>
-    </div>
+    <canvas
+      ref={canvasRef}
+      style={{
+        width: '100%',
+        height: '100%',
+        border: '1px solid #444',
+        background: '#222',
+        display: 'block',
+        objectFit: 'contain',
+        ...style,
+      }}
+    />
   );
 };
 
