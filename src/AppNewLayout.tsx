@@ -791,6 +791,20 @@ function LayoutTypeSelector({ layout, setLayout }: LayoutTypeSelectorProps) {
       ),
     },
     {
+      key: 'boxed',
+      label: 'Boxed',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          {/* Example icon: 2x2 grid with a border */}
+          <rect x="1" y="1" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+          <rect x="4" y="4" width="5" height="5" rx="1" fill="currentColor" />
+          <rect x="11" y="4" width="5" height="5" rx="1" fill="currentColor" />
+          <rect x="4" y="11" width="5" height="5" rx="1" fill="currentColor" />
+          <rect x="11" y="11" width="5" height="5" rx="1" fill="currentColor" />
+        </svg>
+      ),
+    },
+    {
       key: 'cluster',
       label: 'Cluster',
       icon: (
