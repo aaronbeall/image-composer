@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'cluster' | 'subdivide';
+export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'cluster' | 'squarified';
 
 export interface ComposeImageItem {
   src: string;
@@ -120,8 +120,8 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
         case 'cluster':
           layoutRadialMasonry(images, ctx, loadedImgs, sizes, spacingPx, backgroundColor);
           break;
-        case 'subdivide':
-          layoutSubdivide(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
+        case 'squarified':
+          layoutSquarified(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
           break;
         default:
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -665,7 +665,9 @@ function layoutRadialMasonry(images: ComposeImageItem[], ctx: CanvasRenderingCon
 }
 
 // Produces a layout like the attached image: a grid of rectangles, some spanning multiple rows/columns, filling the canvas.
-function layoutSubdivide(
+// Squarified Treemap: arranges rectangles to be as square as possible
+// Sorts by size and arranges in rows, minimizing aspect ratios
+function layoutSquarified(
   images: ComposeImageItem[],
   ctx: CanvasRenderingContext2D,
   loadedImgs: HTMLImageElement[],
@@ -674,19 +676,170 @@ function layoutSubdivide(
   fit: boolean = false,
   backgroundColor: string = 'transparent'
 ) {
-  // --- Dynamic Binary Subdivision for Boxed Layout ---
-  // Compute total area and average aspect ratio
-  const totalPixels = sizes.reduce((sum, s) => sum + s.w * s.h, 0);
-  const avgW = sizes.reduce((a, s) => a + s.w, 0) / sizes.length;
-  const avgH = sizes.reduce((a, s) => a + s.h, 0) / sizes.length;
-  const aspect = avgW / avgH;
-  // Set canvas size so that (canvasW * canvasH) ~= totalPixels, at avg aspect ratio, and account for spacing
-  let canvasH = Math.sqrt(totalPixels / aspect);
-  let canvasW = aspect * canvasH;
+  // Compute total area and estimate canvas size
+  const totalArea = sizes.reduce((sum, s) => sum + s.w * s.h, 0);
+  const avgAspect = sizes.reduce((sum, s) => sum + (s.w / s.h), 0) / sizes.length;
+  let canvasH = Math.sqrt(totalArea / avgAspect);
+  let canvasW = avgAspect * canvasH;
   canvasW = Math.round(canvasW);
   canvasH = Math.round(canvasH);
+
+  // Sort images by area (descending)
+  const indexed = sizes.map((s, i) => ({ ...s, i, area: s.w * s.h, x: 0, y: 0, rw: 0, rh: 0 }));
+  indexed.sort((a, b) => b.area - a.area);
+
+  // Helper: calculate worst aspect ratio in a row given the width
+  function worst(row: typeof indexed, width: number): number {
+    if (row.length === 0 || width === 0) return Infinity;
+    const rowArea = row.reduce((sum, item) => sum + item.area, 0);
+    const rowHeight = rowArea / width;
+    let maxAspect = 0;
+    for (const item of row) {
+      const itemW = item.area / rowHeight;
+      const aspect = Math.max(itemW / rowHeight, rowHeight / itemW);
+      maxAspect = Math.max(maxAspect, aspect);
+    }
+    return maxAspect;
+  }
+
+  // Squarify recursive algorithm with proper remaining space tracking
+  function squarify(items: typeof indexed, x: number, y: number, w: number, h: number) {
+    if (items.length === 0) return;
+
+    // Base case: single item fills the space
+    if (items.length === 1) {
+      items[0].x = x;
+      items[0].y = y;
+      items[0].rw = w;
+      items[0].rh = h;
+      return;
+    }
+
+    // Determine if we should layout horizontally or vertically
+    const totalItemArea = items.reduce((sum, item) => sum + item.area, 0);
+    const useVertical = w > h;
+
+    // Find best row/column
+    let bestRow: typeof indexed = [];
+    let bestIdx = 0;
+
+    if (useVertical) {
+      // Layout as a vertical strip (row)
+      const stripWidth = w;
+      for (let i = 1; i <= items.length; i++) {
+        const row = items.slice(0, i);
+        const rowWorst = worst(row, stripWidth);
+
+        if (i === 1) {
+          bestRow = row;
+          bestIdx = i;
+        } else {
+          const prevWorst = worst(items.slice(0, i - 1), stripWidth);
+          if (rowWorst < prevWorst) {
+            bestRow = row;
+            bestIdx = i;
+          } else {
+            break; // Aspect ratio got worse, use previous
+          }
+        }
+      }
+
+      // Layout the row
+      const rowArea = bestRow.reduce((sum, item) => sum + item.area, 0);
+      const rowHeight = rowArea / stripWidth;
+      let currentX = x;
+      for (const item of bestRow) {
+        const itemW = item.area / rowHeight;
+        item.x = currentX;
+        item.y = y;
+        item.rw = itemW - spacing;
+        item.rh = rowHeight - spacing;
+        currentX += itemW;
+      }
+
+      // Recurse on remaining items
+      const remaining = items.slice(bestIdx);
+      if (remaining.length > 0) {
+        squarify(remaining, x, y + rowHeight, w, h - rowHeight);
+      }
+    } else {
+      // Layout as a horizontal strip (column)
+      const stripHeight = h;
+      for (let i = 1; i <= items.length; i++) {
+        const col = items.slice(0, i);
+        const colArea = col.reduce((sum, item) => sum + item.area, 0);
+        const colWidth = colArea / stripHeight;
+
+        // Calculate worst aspect for this column
+        let colWorst = 0;
+        let currentY = y;
+        for (const item of col) {
+          const itemH = item.area / colWidth;
+          const aspect = Math.max(colWidth / itemH, itemH / colWidth);
+          colWorst = Math.max(colWorst, aspect);
+        }
+
+        if (i === 1) {
+          bestRow = col;
+          bestIdx = i;
+        } else {
+          const prevCol = items.slice(0, i - 1);
+          const prevColArea = prevCol.reduce((sum, item) => sum + item.area, 0);
+          const prevColWidth = prevColArea / stripHeight;
+          let prevWorst = 0;
+          for (const item of prevCol) {
+            const itemH = item.area / prevColWidth;
+            const aspect = Math.max(prevColWidth / itemH, itemH / prevColWidth);
+            prevWorst = Math.max(prevWorst, aspect);
+          }
+
+          if (colWorst < prevWorst) {
+            bestRow = col;
+            bestIdx = i;
+          } else {
+            break;
+          }
+        }
+      }
+
+      // Layout the column
+      const colArea = bestRow.reduce((sum, item) => sum + item.area, 0);
+      const colWidth = colArea / stripHeight;
+      let currentY = y;
+      for (const item of bestRow) {
+        const itemH = item.area / colWidth;
+        item.x = x;
+        item.y = currentY;
+        item.rw = colWidth - spacing;
+        item.rh = itemH - spacing;
+        currentY += itemH;
+      }
+
+      // Recurse on remaining items
+      const remaining = items.slice(bestIdx);
+      if (remaining.length > 0) {
+        squarify(remaining, x + colWidth, y, w - colWidth, h);
+      }
+    }
+  }
+
+  // Run the squarify algorithm
+  const availWidth = canvasW - 2 * spacing;
+  const availHeight = canvasH - 2 * spacing;
+  squarify(indexed, spacing, spacing, availWidth, availHeight);
+
+  // Adjust canvas size to actual content
+  let maxX = 0, maxY = 0;
+  for (const item of indexed) {
+    maxX = Math.max(maxX, item.x + item.rw);
+    maxY = Math.max(maxY, item.y + item.rh);
+  }
+  canvasW = Math.round(maxX + spacing);
+  canvasH = Math.round(maxY + spacing);
+
   ctx.canvas.width = canvasW;
   ctx.canvas.height = canvasH;
+
   // Fill background
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   if (backgroundColor && backgroundColor !== 'transparent') {
@@ -696,58 +849,18 @@ function layoutSubdivide(
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.restore();
   }
-  // --- Recursive subdivision ---
-  // Each node: {x, y, w, h, idxs[]}
-  // idxs: indices of images assigned to this node
-  function subdivide(x: number, y: number, w: number, h: number, idxs: number[]): { x: number, y: number, w: number, h: number, idx: number }[] {
-    if (idxs.length === 1) {
-      return [{ x, y, w, h, idx: idxs[0] }];
-    }
-    // Find best split: try both vertical and horizontal
-    let best = null;
-    let bestScore = Infinity;
-    for (let split = 1; split < idxs.length; ++split) {
-      // Try vertical split
-      const left = idxs.slice(0, split), right = idxs.slice(split);
-      const leftArea = left.reduce((a, i) => a + sizes[i].w * sizes[i].h, 0);
-      const rightArea = right.reduce((a, i) => a + sizes[i].w * sizes[i].h, 0);
-      const totalArea = leftArea + rightArea;
-      const v = w * leftArea / totalArea;
-      const vScore = Math.abs((v / h) - avgW / avgH) + Math.abs((w - v) / h - avgW / avgH);
-      // Try horizontal split
-      const h1 = h * leftArea / totalArea;
-      const hScore = Math.abs((w / h1) - avgW / avgH) + Math.abs(w / (h - h1) - avgW / avgH);
-      // Pick best
-      if (vScore < bestScore) {
-        bestScore = vScore;
-        best = { dir: 'v', split, left, right, v };
-      }
-      if (hScore < bestScore) {
-        bestScore = hScore;
-        best = { dir: 'h', split, left, right, h1 };
-      }
-    }
-    if (!best) return [];
-    if ('v' in best) {
-      // Vertical split
-      const leftRects = subdivide(x, y, best.v - spacing / 2, h, best.left);
-      const rightRects = subdivide(x + best.v + spacing / 2, y, w - best.v - spacing / 2, h, best.right);
-      return [...leftRects, ...rightRects];
-    } else {
-      // Horizontal split
-      const topRects = subdivide(x, y, w, best.h1 - spacing / 2, best.left);
-      const botRects = subdivide(x, y + best.h1 + spacing / 2, w, h - best.h1 - spacing / 2, best.right);
-      return [...topRects, ...botRects];
-    }
-  }
-  // Sort images by area descending for more stable splits
-  const idxs = sizes.map((_, i) => i).sort((a, b) => (sizes[b].w * sizes[b].h) - (sizes[a].w * sizes[a].h));
-  const rects = subdivide(spacing, spacing, canvasW - 2 * spacing, canvasH - 2 * spacing, idxs);
-  // Draw each image in its rect
-  for (const r of rects) {
-    const img = loadedImgs[r.idx];
+
+  // Draw images
+  for (const item of indexed) {
+    const img = loadedImgs[item.i];
+    const tileX = item.x;
+    const tileY = item.y;
+    const tileW = item.rw;
+    const tileH = item.rh;
+
     let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
-    let dx = r.x, dy = r.y, dw = r.w, dh = r.h;
+    let dx = tileX, dy = tileY, dw = tileW, dh = tileH;
+
     if (fit) {
       // Cover: scale and crop to fill tile
       const scale = Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
@@ -756,16 +869,17 @@ function layoutSubdivide(
       sx = (img.naturalWidth - sw) / 2;
       sy = (img.naturalHeight - sh) / 2;
     } else {
-      // Contain: scale to fit inside tile
+      // Contain: scale to fit inside tile and center
       const scale = Math.min(dw / img.naturalWidth, dh / img.naturalHeight);
       dw = img.naturalWidth * scale;
       dh = img.naturalHeight * scale;
-      dx = r.x + (r.w - dw) / 2;
-      dy = r.y + (r.h - dh) / 2;
+      dx = tileX + (tileW - dw) / 2;
+      dy = tileY + (tileH - dh) / 2;
     }
+
     ctx.save();
     ctx.beginPath();
-    ctx.rect(r.x, r.y, r.w, r.h);
+    ctx.rect(tileX, tileY, tileW, tileH);
     ctx.clip();
     ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
     ctx.restore();

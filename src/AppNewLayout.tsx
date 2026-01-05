@@ -149,6 +149,9 @@ export default function AppNewLayout() {
   // Update canvas info from ImageComposer
   const visibleImages = useMemo(() => images.filter(img => !img.hidden), [images]);
 
+  // Determine which layouts support the Fit option
+  const supportsFit = ['grid', 'masonry', 'single-row', 'single-column', 'squarified'].includes(layout);
+
   return (
     <div className="w-full min-h-screen bg-neutral-900 text-white flex flex-col">
       {/* Hidden file input for all Browse buttons */}
@@ -431,7 +434,7 @@ export default function AppNewLayout() {
                     <input type="checkbox" checked={normalizeSize} onChange={e => setNormalizeSize(e.target.checked)} className="accent-indigo-500" />
                     Normalize size
                   </label>
-                  {(layout === 'grid' || layout === 'masonry' || layout === 'single-row' || layout === 'single-column') && (
+                  {supportsFit && (
                     <label className="flex items-center gap-2 text-xs font-medium">
                       <input type="checkbox" checked={fit} onChange={e => setFit(e.target.checked)} className="accent-indigo-500" />
                       Fit
@@ -666,7 +669,7 @@ export default function AppNewLayout() {
                       <input type="checkbox" checked={normalizeSize} onChange={e => setNormalizeSize(e.target.checked)} className="accent-indigo-500" />
                       Normalize size
                     </label>
-                    {(layout === 'grid' || layout === 'masonry' || layout === 'single-row' || layout === 'single-column') && (
+                    {supportsFit && (
                       <label className="flex items-center gap-2 text-xs font-medium">
                         <input type="checkbox" checked={fit} onChange={e => setFit(e.target.checked)} className="accent-indigo-500" />
                         Fit
@@ -838,16 +841,14 @@ function LayoutTypeSelector({ layout, setLayout }: LayoutTypeSelectorProps) {
       ),
     },
     {
-      key: 'subdivide',
-      label: 'Subdivide',
+      key: 'squarified',
+      label: 'Squarified',
       icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          {/* Example icon: 2x2 grid with a border */}
-          <rect x="1" y="1" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
-          <rect x="4" y="4" width="5" height="5" rx="1" fill="currentColor" />
-          <rect x="11" y="4" width="5" height="5" rx="1" fill="currentColor" />
-          <rect x="4" y="11" width="5" height="5" rx="1" fill="currentColor" />
-          <rect x="11" y="11" width="5" height="5" rx="1" fill="currentColor" />
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor" />
+          <rect x="11" y="2" width="7" height="8" rx="1" fill="currentColor" />
+          <rect x="2" y="11" width="6" height="7" rx="1" fill="currentColor" />
+          <rect x="9" y="11" width="9" height="7" rx="1" fill="currentColor" />
         </svg>
       ),
     },
