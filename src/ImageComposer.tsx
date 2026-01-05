@@ -48,6 +48,21 @@ function getNormalizedSize(imgs: HTMLImageElement[], mode: NormalizeMode = 'both
   };
 }
 
+// Layout result types
+interface LayoutItem {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  imageIndex: number;
+}
+
+interface LayoutResult {
+  canvasWidth: number;
+  canvasHeight: number;
+  items: LayoutItem[];
+}
+
 export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, backgroundColor = 'transparent', style, scale = 1, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -100,37 +115,37 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-      // Pass backgroundColor to layout functions so they fill after resizing
+
+      // Calculate layout (separated from drawing)
+      let layoutResult: LayoutResult;
       switch (layout) {
         case 'single-row':
-          layoutSingleRow(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
+          layoutResult = layoutSingleRow(loadedImgs, sizes, spacingPx, fit);
           break;
         case 'single-column':
-          layoutSingleColumn(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
+          layoutResult = layoutSingleColumn(loadedImgs, sizes, spacingPx, fit);
           break;
         case 'grid':
-          layoutGrid(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
+          layoutResult = layoutGrid(loadedImgs, sizes, spacingPx, fit);
           break;
         case 'masonry':
-          layoutMasonry(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
+          layoutResult = layoutMasonry(loadedImgs, sizes, spacingPx, fit);
           break;
         case 'packed':
-          layoutPacked(images, ctx, loadedImgs, sizes, spacingPx, backgroundColor);
+          layoutResult = layoutPacked(sizes, spacingPx);
           break;
         case 'cluster':
-          layoutRadialMasonry(images, ctx, loadedImgs, sizes, spacingPx, backgroundColor);
+          layoutResult = layoutRadialMasonry(sizes, spacingPx);
           break;
         case 'squarified':
-          layoutSquarified(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
+          layoutResult = layoutSquarified(sizes, spacingPx);
           break;
         default:
-          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-          ctx.fillStyle = '#222';
-          ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-          ctx.font = '16px sans-serif';
-          ctx.fillStyle = '#fff';
-          ctx.fillText('Layout not implemented', 10, 30);
+          layoutResult = { canvasWidth: 800, canvasHeight: 600, items: [] };
       }
+
+      // Draw the layout
+      drawImages(ctx, layoutResult, images, loadedImgs, fit, backgroundColor);
     };
     run();
     const canvas = canvasRef.current;
@@ -160,19 +175,95 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
 };
 
 
+// --- Drawing functions ---
+function drawImages(
+  ctx: CanvasRenderingContext2D,
+  layout: LayoutResult,
+  images: ComposeImageItem[],
+  loadedImgs: HTMLImageElement[],
+  fit: boolean,
+  backgroundColor: string
+) {
+  // Set canvas size
+  ctx.canvas.width = layout.canvasWidth;
+  ctx.canvas.height = layout.canvasHeight;
+
+  // Fill background
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  if (backgroundColor && backgroundColor !== 'transparent') {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+  }
+
+  // Draw each image
+  for (const item of layout.items) {
+    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit);
+  }
+}
+
+function drawImage(
+  ctx: CanvasRenderingContext2D,
+  item: LayoutItem,
+  imageData: ComposeImageItem,
+  img: HTMLImageElement,
+  fit: boolean
+) {
+  const { x, y, w, h } = item;
+
+  let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+  let dx = x, dy = y, dw = w, dh = h;
+
+  if (fit) {
+    // Cover: scale and crop to fill tile
+    const scale = Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
+    sw = dw / scale;
+    sh = dh / scale;
+    sx = (img.naturalWidth - sw) / 2;
+    sy = (img.naturalHeight - sh) / 2;
+  } else {
+    // Contain: scale to fit inside tile and center
+    const scale = Math.min(dw / img.naturalWidth, dh / img.naturalHeight);
+    dw = img.naturalWidth * scale;
+    dh = img.naturalHeight * scale;
+    dx = x + (w - dw) / 2;
+    dy = y + (h - dh) / 2;
+  }
+
+  // Clip and draw
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  ctx.restore();
+
+  // Draw label and description
+  if (imageData.label) {
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(imageData.label, x + 4, y + 16);
+  }
+  if (imageData.description) {
+    ctx.font = '12px sans-serif';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(imageData.description, x + 4, y + h - 6);
+  }
+}
+
 // --- Layout functions ---
 function layoutSingleRow(
-  images: ComposeImageItem[],
-  ctx: CanvasRenderingContext2D,
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false,
-  backgroundColor: string = 'transparent'
-) {
+  fit: boolean = false
+): LayoutResult {
   const maxHeight = Math.max(...sizes.map(s => s.h)) + 2 * spacing;
   let totalWidth;
   let scaledWidths: number[] = [];
+
   if (fit) {
     // All images get height = maxHeight - 2*spacing, width by aspect ratio
     const rowH = maxHeight - 2 * spacing;
@@ -181,64 +272,34 @@ function layoutSingleRow(
   } else {
     totalWidth = sizes.reduce((sum, s, i) => sum + s.w + (i > 0 ? spacing : 0), 0) + 2 * spacing;
   }
-  ctx.canvas.width = totalWidth;
-  ctx.canvas.height = maxHeight;
-  // Fill background after resizing
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  if (backgroundColor && backgroundColor !== 'transparent') {
-    ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.restore();
-  }
-  // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // already handled
+
+  const items: LayoutItem[] = [];
   let x = spacing;
-  loadedImgs.forEach((img, i) => {
-    if (fit) {
-      const rowH = maxHeight - 2 * spacing;
-      const w = scaledWidths[i];
-      ctx.drawImage(img, x, spacing, w, rowH);
-      if (images[i].label) {
-        ctx.font = 'bold 14px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].label!, x + 4, spacing + 16);
-      }
-      if (images[i].description) {
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].description!, x + 4, spacing + rowH - 6);
-      }
-      x += w + spacing;
-    } else {
-      ctx.drawImage(img, x, spacing, sizes[i].w, sizes[i].h);
-      if (images[i].label) {
-        ctx.font = 'bold 14px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].label!, x + 4, 16);
-      }
-      if (images[i].description) {
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].description!, x + 4, sizes[i].h - 6);
-      }
-      x += sizes[i].w + spacing;
-    }
+
+  loadedImgs.forEach((_img, i) => {
+    const w = fit ? scaledWidths[i] : sizes[i].w;
+    const h = fit ? maxHeight - 2 * spacing : sizes[i].h;
+    items.push({ x, y: spacing, w, h, imageIndex: i });
+    x += w + spacing;
   });
+
+  return {
+    canvasWidth: totalWidth,
+    canvasHeight: maxHeight,
+    items
+  };
 }
 
 function layoutSingleColumn(
-  images: ComposeImageItem[],
-  ctx: CanvasRenderingContext2D,
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false,
-  backgroundColor: string = 'transparent'
-) {
+  fit: boolean = false
+): LayoutResult {
   const maxWidth = Math.max(...sizes.map(s => s.w)) + 2 * spacing;
   let totalHeight;
   let scaledHeights: number[] = [];
+
   if (fit) {
     // All images get width = maxWidth - 2*spacing, height by aspect ratio
     const colW = maxWidth - 2 * spacing;
@@ -247,145 +308,79 @@ function layoutSingleColumn(
   } else {
     totalHeight = sizes.reduce((sum, s, i) => sum + s.h + (i > 0 ? spacing : 0), 0) + 2 * spacing;
   }
-  ctx.canvas.width = maxWidth;
-  ctx.canvas.height = totalHeight;
-  // Fill background after resizing
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  if (backgroundColor && backgroundColor !== 'transparent') {
-    ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.restore();
-  }
-  // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // already handled
+
+  const items: LayoutItem[] = [];
   let y = spacing;
-  loadedImgs.forEach((img, i) => {
+
+  loadedImgs.forEach((_img, i) => {
     if (fit) {
       const colW = maxWidth - 2 * spacing;
       const h = scaledHeights[i];
-      ctx.drawImage(img, (maxWidth - colW) / 2, y, colW, h);
-      if (images[i].label) {
-        ctx.font = 'bold 14px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].label!, (maxWidth - colW) / 2 + 4, y + 16);
-      }
-      if (images[i].description) {
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].description!, (maxWidth - colW) / 2 + 4, y + h - 6);
-      }
+      items.push({ x: (maxWidth - colW) / 2, y, w: colW, h, imageIndex: i });
       y += h + spacing;
     } else {
-      ctx.drawImage(img, (maxWidth - 2 * spacing - sizes[i].w) / 2 + spacing, y, sizes[i].w, sizes[i].h);
-      if (images[i].label) {
-        ctx.font = 'bold 14px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].label!, (maxWidth - sizes[i].w) / 2 + 4, y + 16);
-      }
-      if (images[i].description) {
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].description!, (maxWidth - sizes[i].w) / 2 + 4, y + sizes[i].h - 6);
-      }
+      const x = (maxWidth - 2 * spacing - sizes[i].w) / 2 + spacing;
+      items.push({ x, y, w: sizes[i].w, h: sizes[i].h, imageIndex: i });
       y += sizes[i].h + spacing;
     }
   });
+
+  return {
+    canvasWidth: maxWidth,
+    canvasHeight: totalHeight,
+    items
+  };
 }
 
 function layoutGrid(
-  images: ComposeImageItem[],
-  ctx: CanvasRenderingContext2D,
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false,
-  backgroundColor: string = 'transparent'
-) {
+  fit: boolean = false
+): LayoutResult {
   // Make a square-ish grid
   const n = loadedImgs.length;
   const cols = Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
   const cellW = Math.max(...sizes.map(s => s.w));
   const cellH = Math.max(...sizes.map(s => s.h));
-  ctx.canvas.width = cols * cellW + (cols - 1) * spacing + 2 * spacing;
-  ctx.canvas.height = rows * cellH + (rows - 1) * spacing + 2 * spacing;
-  // Fill background after resizing
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  if (backgroundColor && backgroundColor !== 'transparent') {
-    ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.restore();
-  }
-  // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // already handled
+  const canvasWidth = cols * cellW + (cols - 1) * spacing + 2 * spacing;
+  const canvasHeight = rows * cellH + (rows - 1) * spacing + 2 * spacing;
+
+  const items: LayoutItem[] = [];
+
   for (let i = 0; i < n; ++i) {
     const col = i % cols;
     const row = Math.floor(i / cols);
     const x = col * (cellW + spacing) + spacing;
     const y = row * (cellH + spacing) + spacing;
+
     if (fit) {
-      // Scale and center to fill the cell, cropping overflow
-      const img = loadedImgs[i];
-      const aspectImg = img.naturalWidth / img.naturalHeight;
-      const aspectCell = cellW / cellH;
-      let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
-      if (aspectImg > aspectCell) {
-        // Image is wider, crop horizontally
-        sh = img.naturalHeight;
-        sw = sh * aspectCell;
-        sx = (img.naturalWidth - sw) / 2;
-        sy = 0;
-      } else {
-        // Image is taller, crop vertically
-        sw = img.naturalWidth;
-        sh = sw / aspectCell;
-        sx = 0;
-        sy = (img.naturalHeight - sh) / 2;
-      }
-      ctx.drawImage(img, sx, sy, sw, sh, x, y, cellW, cellH);
-      // Draw label/desc at fixed positions
-      if (images[i].label) {
-        ctx.font = 'bold 14px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].label!, x + 4, y + 16);
-      }
-      if (images[i].description) {
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].description!, x + 4, y + cellH - 6);
-      }
+      // Fit mode: use full cell dimensions
+      items.push({ x, y, w: cellW, h: cellH, imageIndex: i });
     } else {
-      // Center image in cell, no cropping
+      // Center image in cell
       const imgW = sizes[i].w;
       const imgH = sizes[i].h;
       const cx = x + (cellW - imgW) / 2;
       const cy = y + (cellH - imgH) / 2;
-      ctx.drawImage(loadedImgs[i], cx, cy, imgW, imgH);
-      if (images[i].label) {
-        ctx.font = 'bold 14px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].label!, cx + 4, cy + 16);
-      }
-      if (images[i].description) {
-        ctx.font = '12px sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(images[i].description!, cx + 4, cy + imgH - 6);
-      }
+      items.push({ x: cx, y: cy, w: imgW, h: imgH, imageIndex: i });
     }
   }
+
+  return {
+    canvasWidth,
+    canvasHeight,
+    items
+  };
 }
 
 function layoutMasonry(
-  images: ComposeImageItem[],
-  ctx: CanvasRenderingContext2D,
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false,
-  backgroundColor: string = 'transparent'
-) {
+  fit: boolean = false
+): LayoutResult {
   // Simple masonry: assign each image to the shortest column
   const n = loadedImgs.length;
   const cols = Math.ceil(Math.sqrt(n));
@@ -394,7 +389,7 @@ function layoutMasonry(
   // Add spacing to colWidths except last col
   for (let i = 0; i < cols - 1; ++i) colWidths[i] += spacing;
   const colHeights = Array(cols).fill(0);
-  const positions: { x: number, y: number, w: number, h: number, imgIdx: number, col: number }[] = [];
+  const items: LayoutItem[] = [];
   for (let i = 0; i < n; ++i) {
     // Find shortest column
     let minCol = 0;
@@ -409,42 +404,20 @@ function layoutMasonry(
       drawW = w;
       drawH = Math.round(drawW * (loadedImgs[i].naturalHeight / loadedImgs[i].naturalWidth));
     }
-    positions.push({ x, y, w: drawW, h: drawH, imgIdx: i, col: minCol });
+    items.push({ x: x + spacing, y: y + spacing, w: drawW, h: drawH, imageIndex: i });
     colHeights[minCol] += drawH + (colHeights[minCol] > 0 ? spacing : 0);
   }
-  const totalWidth = colWidths.reduce((a, b) => a + b, 0) + 2 * spacing;
-  const totalHeight = Math.max(...colHeights) + 2 * spacing;
-  ctx.canvas.width = totalWidth;
-  ctx.canvas.height = totalHeight;
-  // Fill background after resizing
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  if (backgroundColor && backgroundColor !== 'transparent') {
-    ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.restore();
-  }
-  // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // already handled
-  for (let i = 0; i < n; ++i) {
-    const { x, y, w, h, imgIdx } = positions[i];
-    ctx.drawImage(loadedImgs[imgIdx], x + spacing, y + spacing, w, h);
-    if (images[imgIdx].label) {
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[imgIdx].label!, x + spacing + 4, y + spacing + 16);
-    }
-    if (images[imgIdx].description) {
-      ctx.font = '12px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[imgIdx].description!, x + spacing + 4, y + spacing + h - 6);
-    }
-  }
+  const canvasWidth = colWidths.reduce((a, b) => a + b, 0) + 2 * spacing;
+  const canvasHeight = Math.max(...colHeights) + 2 * spacing;
+  return { canvasWidth, canvasHeight, items };
 }
 
 // Maximal rectangles bin-packing: place images in any available gap, splitting gaps as needed
 // Blackpawn binary tree rectangle packing algorithm
-function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0, backgroundColor: string = 'transparent') {
+function layoutPacked(
+  sizes: { w: number, h: number }[],
+  spacing: number = 0
+): LayoutResult {
   // Estimate bin width and height
   const totalArea = sizes.reduce((a, s) => a + s.w * s.h, 0);
   const maxW = Math.max(...sizes.map(s => s.w));
@@ -504,37 +477,22 @@ function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D,
       success = true;
     }
   }
-  // Set canvas size
-  ctx.canvas.width = binW;
-  ctx.canvas.height = binH;
-  // Fill background after resizing
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  if (backgroundColor && backgroundColor !== 'transparent') {
-    ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.restore();
-  }
-  // Draw images
-  for (let i = 0; i < sizes.length; ++i) {
-    const { x, y } = placements[i];
-    ctx.drawImage(loadedImgs[i], x, y, sizes[i].w, sizes[i].h);
-    if (images[i].label) {
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].label!, x + 4, y + 16);
-    }
-    if (images[i].description) {
-      ctx.font = '12px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].description!, x + 4, y + sizes[i].h - 6);
-    }
-  }
+  // Build items array
+  const items: LayoutItem[] = sizes.map((size, i) => ({
+    x: placements[i].x,
+    y: placements[i].y,
+    w: size.w,
+    h: size.h,
+    imageIndex: i
+  }));
+  return { canvasWidth: binW, canvasHeight: binH, items };
 }
 
 // Radial-masonry, constraint-driven greedy packing for organic collage
-function layoutRadialMasonry(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0, backgroundColor: string = 'transparent') {
+function layoutRadialMasonry(
+  sizes: { w: number, h: number }[],
+  spacing: number = 0
+): LayoutResult {
   // Sort by area descending
   const indexed = sizes.map((s, i) => ({ ...s, i, area: s.w * s.h }));
   indexed.sort((a, b) => b.area - a.area);
@@ -635,47 +593,25 @@ function layoutRadialMasonry(images: ComposeImageItem[], ctx: CanvasRenderingCon
   // Normalize all positions so minX/minY is at 0,0
   const offsetX = -minX, offsetY = -minY;
   // Add spacing to all edges by offsetting placements and increasing canvas size
-  ctx.canvas.width = maxX - minX + 2 * spacing;
-  ctx.canvas.height = maxY - minY + 2 * spacing;
-  // Fill background after resizing
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  if (backgroundColor && backgroundColor !== 'transparent') {
-    ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.restore();
-  }
-  for (const p of placements) {
-    const x = p.x + offsetX + spacing;
-    const y = p.y + offsetY + spacing;
-    const i = p.i;
-    ctx.drawImage(loadedImgs[i], x, y, sizes[i].w, sizes[i].h);
-    if (images[i].label) {
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].label!, x + 4, y + 16);
-    }
-    if (images[i].description) {
-      ctx.font = '12px sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(images[i].description!, x + 4, y + sizes[i].h - 6);
-    }
-  }
+  const canvasWidth = maxX - minX + 2 * spacing;
+  const canvasHeight = maxY - minY + 2 * spacing;
+  const items: LayoutItem[] = placements.map(p => ({
+    x: p.x + offsetX + spacing,
+    y: p.y + offsetY + spacing,
+    w: sizes[p.i].w,
+    h: sizes[p.i].h,
+    imageIndex: p.i
+  }));
+  return { canvasWidth, canvasHeight, items };
 }
 
 // Produces a layout like the attached image: a grid of rectangles, some spanning multiple rows/columns, filling the canvas.
 // Squarified Treemap: arranges rectangles to be as square as possible
 // Sorts by size and arranges in rows, minimizing aspect ratios
 function layoutSquarified(
-  images: ComposeImageItem[],
-  ctx: CanvasRenderingContext2D,
-  loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
-  spacing: number = 0,
-  fit: boolean = false,
-  backgroundColor: string = 'transparent'
-) {
+  spacing: number = 0
+): LayoutResult {
   // Compute total area and estimate canvas size
   const totalArea = sizes.reduce((sum, s) => sum + s.w * s.h, 0);
   const avgAspect = sizes.reduce((sum, s) => sum + (s.w / s.h), 0) / sizes.length;
@@ -716,7 +652,6 @@ function layoutSquarified(
     }
 
     // Determine if we should layout horizontally or vertically
-    const totalItemArea = items.reduce((sum, item) => sum + item.area, 0);
     const useVertical = w > h;
 
     // Find best row/column
@@ -772,7 +707,6 @@ function layoutSquarified(
 
         // Calculate worst aspect for this column
         let colWorst = 0;
-        let currentY = y;
         for (const item of col) {
           const itemH = item.area / colWidth;
           const aspect = Math.max(colWidth / itemH, itemH / colWidth);
@@ -837,51 +771,23 @@ function layoutSquarified(
   canvasW = Math.round(maxX + spacing);
   canvasH = Math.round(maxY + spacing);
 
-  ctx.canvas.width = canvasW;
-  ctx.canvas.height = canvasH;
-
-  // Fill background
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  if (backgroundColor && backgroundColor !== 'transparent') {
-    ctx.save();
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.restore();
-  }
-
-  // Draw images
-  for (const item of indexed) {
-    const img = loadedImgs[item.i];
+  // Build items array with fit/contain calculations
+  const items: LayoutItem[] = indexed.map(item => {
     const tileX = item.x;
     const tileY = item.y;
     const tileW = item.rw;
     const tileH = item.rh;
 
-    let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
-    let dx = tileX, dy = tileY, dw = tileW, dh = tileH;
+    // For squarified, we apply fit/contain logic in the drawImage function
+    // Here we just store the tile bounds
+    return {
+      x: tileX,
+      y: tileY,
+      w: tileW,
+      h: tileH,
+      imageIndex: item.i
+    };
+  });
 
-    if (fit) {
-      // Cover: scale and crop to fill tile
-      const scale = Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
-      sw = dw / scale;
-      sh = dh / scale;
-      sx = (img.naturalWidth - sw) / 2;
-      sy = (img.naturalHeight - sh) / 2;
-    } else {
-      // Contain: scale to fit inside tile and center
-      const scale = Math.min(dw / img.naturalWidth, dh / img.naturalHeight);
-      dw = img.naturalWidth * scale;
-      dh = img.naturalHeight * scale;
-      dx = tileX + (tileW - dw) / 2;
-      dy = tileY + (tileH - dh) / 2;
-    }
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(tileX, tileY, tileW, tileH);
-    ctx.clip();
-    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
-    ctx.restore();
-  }
+  return { canvasWidth: canvasW, canvasHeight: canvasH, items };
 }
