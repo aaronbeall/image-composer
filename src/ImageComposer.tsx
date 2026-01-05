@@ -10,16 +10,32 @@ export interface ComposeImageItem {
   height?: number;
 }
 
+export interface LayoutOptions {
+  spacing?: number; // 0-100, relative to avg image size
+  fit?: boolean; // fit option for grid/masonry
+  scale?: number;
+}
+
+export interface StyleOptions {
+  backgroundColor?: string;
+  cornerRadius?: number;
+  border?: boolean;
+  borderColor?: string;
+  borderSize?: number;
+  shadowColor?: string;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowBlur?: number;
+}
+
 interface ImageComposerProps {
   images: ComposeImageItem[];
   normalizeSize: boolean;
   layout: LayoutType;
-  spacing?: number; // 0-100, relative to avg image size
-  fit?: boolean; // new fit option for grid/masonry
-  backgroundColor?: string;
+  layoutOptions: LayoutOptions;
+  styleOptions: StyleOptions;
   onUpdate(info: { width: number; height: number; getImageData: () => string; getImageBlob: () => Promise<Blob | null>; }): void;
   style?: React.CSSProperties;
-  scale?: number;
 }
 
 // Utility to load all images and get their natural sizes
@@ -63,7 +79,9 @@ interface LayoutResult {
   items: LayoutItem[];
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, backgroundColor = 'transparent', style, scale = 1, onUpdate }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, layoutOptions, styleOptions, style, onUpdate }) => {
+  const { spacing = 0, fit = false, scale = 1 } = layoutOptions;
+  const { backgroundColor = 'transparent' } = styleOptions;
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
