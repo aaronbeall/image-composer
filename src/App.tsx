@@ -1,6 +1,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Download, Eye, EyeOff, ImagePlus, LayoutGrid, Menu, Paintbrush, Share2, Upload, X } from 'lucide-react';
@@ -429,14 +430,14 @@ export default function App() {
                 </div>
                 {/* Toggles */}
                 <div className="flex flex-col gap-2 mt-2">
-                  <label className="flex items-center gap-2 text-xs font-medium">
-                    <input type="checkbox" checked={normalizeSize} onChange={e => setNormalizeSize(e.target.checked)} className="accent-indigo-500" />
-                    Normalize size
+                  <label className="flex items-center justify-between text-xs font-medium">
+                    <span>Normalize size</span>
+                    <Switch checked={normalizeSize} onCheckedChange={setNormalizeSize} />
                   </label>
                   {supportsFit && (
-                    <label className="flex items-center gap-2 text-xs font-medium">
-                      <input type="checkbox" checked={fit} onChange={e => setFit(e.target.checked)} className="accent-indigo-500" />
-                      Fit
+                    <label className="flex items-center justify-between text-xs font-medium">
+                      <span>Fit</span>
+                      <Switch checked={fit} onCheckedChange={setFit} />
                     </label>
                   )}
                 </div>
@@ -670,14 +671,14 @@ export default function App() {
                   </div>
                   {/* Toggles */}
                   <div className="flex flex-col gap-2 mt-2 mb-2">
-                    <label className="flex items-center gap-2 text-xs font-medium">
-                      <input type="checkbox" checked={normalizeSize} onChange={e => setNormalizeSize(e.target.checked)} className="accent-indigo-500" />
-                      Normalize size
+                    <label className="flex items-center justify-between text-xs font-medium">
+                      <span>Normalize size</span>
+                      <Switch checked={normalizeSize} onCheckedChange={setNormalizeSize} />
                     </label>
                     {supportsFit && (
-                      <label className="flex items-center gap-2 text-xs font-medium">
-                        <input type="checkbox" checked={fit} onChange={e => setFit(e.target.checked)} className="accent-indigo-500" />
-                        Fit
+                      <label className="flex items-center justify-between text-xs font-medium">
+                        <span>Fit</span>
+                        <Switch checked={fit} onCheckedChange={setFit} />
                       </label>
                     )}
                   </div>
