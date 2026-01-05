@@ -131,114 +131,6 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
           ctx.fillStyle = '#fff';
           ctx.fillText('Layout not implemented', 10, 30);
       }
-      // --- Boxed Layout ---
-      // Produces a layout like the attached image: a grid of rectangles, some spanning multiple rows/columns, filling the canvas.
-      function layoutSubdivide(
-        images: ComposeImageItem[],
-        ctx: CanvasRenderingContext2D,
-        loadedImgs: HTMLImageElement[],
-        sizes: { w: number, h: number }[],
-        spacing: number = 0,
-        fit: boolean = false,
-        backgroundColor: string = 'transparent'
-      ) {
-        // --- Dynamic Binary Subdivision for Boxed Layout ---
-        // Compute total area and average aspect ratio
-        const totalPixels = sizes.reduce((sum, s) => sum + s.w * s.h, 0);
-        const avgW = sizes.reduce((a, s) => a + s.w, 0) / sizes.length;
-        const avgH = sizes.reduce((a, s) => a + s.h, 0) / sizes.length;
-        const aspect = avgW / avgH;
-        // Set canvas size so that (canvasW * canvasH) ~= totalPixels, at avg aspect ratio, and account for spacing
-        let canvasH = Math.sqrt(totalPixels / aspect);
-        let canvasW = aspect * canvasH;
-        canvasW = Math.round(canvasW);
-        canvasH = Math.round(canvasH);
-        ctx.canvas.width = canvasW;
-        ctx.canvas.height = canvasH;
-        // Fill background
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        if (backgroundColor && backgroundColor !== 'transparent') {
-          ctx.save();
-          ctx.globalAlpha = 1;
-          ctx.fillStyle = backgroundColor;
-          ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-          ctx.restore();
-        }
-        // --- Recursive subdivision ---
-        // Each node: {x, y, w, h, idxs[]}
-        // idxs: indices of images assigned to this node
-        function subdivide(x: number, y: number, w: number, h: number, idxs: number[]): { x: number, y: number, w: number, h: number, idx: number }[] {
-          if (idxs.length === 1) {
-            return [{ x, y, w, h, idx: idxs[0] }];
-          }
-          // Find best split: try both vertical and horizontal
-          let best = null;
-          let bestScore = Infinity;
-          for (let split = 1; split < idxs.length; ++split) {
-            // Try vertical split
-            const left = idxs.slice(0, split), right = idxs.slice(split);
-            const leftArea = left.reduce((a, i) => a + sizes[i].w * sizes[i].h, 0);
-            const rightArea = right.reduce((a, i) => a + sizes[i].w * sizes[i].h, 0);
-            const totalArea = leftArea + rightArea;
-            const v = w * leftArea / totalArea;
-            const vScore = Math.abs((v / h) - avgW / avgH) + Math.abs((w - v) / h - avgW / avgH);
-            // Try horizontal split
-            const h1 = h * leftArea / totalArea;
-            const hScore = Math.abs((w / h1) - avgW / avgH) + Math.abs(w / (h - h1) - avgW / avgH);
-            // Pick best
-            if (vScore < bestScore) {
-              bestScore = vScore;
-              best = { dir: 'v', split, left, right, v };
-            }
-            if (hScore < bestScore) {
-              bestScore = hScore;
-              best = { dir: 'h', split, left, right, h1 };
-            }
-          }
-          if (!best) return [];
-          if ('v' in best) {
-            // Vertical split
-            const leftRects = subdivide(x, y, best.v - spacing / 2, h, best.left);
-            const rightRects = subdivide(x + best.v + spacing / 2, y, w - best.v - spacing / 2, h, best.right);
-            return [...leftRects, ...rightRects];
-          } else {
-            // Horizontal split
-            const topRects = subdivide(x, y, w, best.h1 - spacing / 2, best.left);
-            const botRects = subdivide(x, y + best.h1 + spacing / 2, w, h - best.h1 - spacing / 2, best.right);
-            return [...topRects, ...botRects];
-          }
-        }
-        // Sort images by area descending for more stable splits
-        const idxs = sizes.map((_, i) => i).sort((a, b) => (sizes[b].w * sizes[b].h) - (sizes[a].w * sizes[a].h));
-        const rects = subdivide(spacing, spacing, canvasW - 2 * spacing, canvasH - 2 * spacing, idxs);
-        // Draw each image in its rect
-        for (const r of rects) {
-          const img = loadedImgs[r.idx];
-          let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
-          let dx = r.x, dy = r.y, dw = r.w, dh = r.h;
-          if (fit) {
-            // Cover: scale and crop to fill tile
-            const scale = Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
-            sw = dw / scale;
-            sh = dh / scale;
-            sx = (img.naturalWidth - sw) / 2;
-            sy = (img.naturalHeight - sh) / 2;
-          } else {
-            // Contain: scale to fit inside tile
-            const scale = Math.min(dw / img.naturalWidth, dh / img.naturalHeight);
-            dw = img.naturalWidth * scale;
-            dh = img.naturalHeight * scale;
-            dx = r.x + (r.w - dw) / 2;
-            dy = r.y + (r.h - dh) / 2;
-          }
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(r.x, r.y, r.w, r.h);
-          ctx.clip();
-          ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
-          ctx.restore();
-        }
-      }
     };
     run();
     const canvas = canvasRef.current;
@@ -550,7 +442,6 @@ function layoutMasonry(
   }
 }
 
-
 // Maximal rectangles bin-packing: place images in any available gap, splitting gaps as needed
 // Blackpawn binary tree rectangle packing algorithm
 function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0, backgroundColor: string = 'transparent') {
@@ -641,10 +532,6 @@ function layoutPacked(images: ComposeImageItem[], ctx: CanvasRenderingContext2D,
     }
   }
 }
-
-
-
-
 
 // Radial-masonry, constraint-driven greedy packing for organic collage
 function layoutRadialMasonry(images: ComposeImageItem[], ctx: CanvasRenderingContext2D, loadedImgs: HTMLImageElement[], sizes: { w: number, h: number }[], spacing: number = 0, backgroundColor: string = 'transparent') {
@@ -774,5 +661,113 @@ function layoutRadialMasonry(images: ComposeImageItem[], ctx: CanvasRenderingCon
       ctx.fillStyle = '#fff';
       ctx.fillText(images[i].description!, x + 4, y + sizes[i].h - 6);
     }
+  }
+}
+
+// Produces a layout like the attached image: a grid of rectangles, some spanning multiple rows/columns, filling the canvas.
+function layoutSubdivide(
+  images: ComposeImageItem[],
+  ctx: CanvasRenderingContext2D,
+  loadedImgs: HTMLImageElement[],
+  sizes: { w: number, h: number }[],
+  spacing: number = 0,
+  fit: boolean = false,
+  backgroundColor: string = 'transparent'
+) {
+  // --- Dynamic Binary Subdivision for Boxed Layout ---
+  // Compute total area and average aspect ratio
+  const totalPixels = sizes.reduce((sum, s) => sum + s.w * s.h, 0);
+  const avgW = sizes.reduce((a, s) => a + s.w, 0) / sizes.length;
+  const avgH = sizes.reduce((a, s) => a + s.h, 0) / sizes.length;
+  const aspect = avgW / avgH;
+  // Set canvas size so that (canvasW * canvasH) ~= totalPixels, at avg aspect ratio, and account for spacing
+  let canvasH = Math.sqrt(totalPixels / aspect);
+  let canvasW = aspect * canvasH;
+  canvasW = Math.round(canvasW);
+  canvasH = Math.round(canvasH);
+  ctx.canvas.width = canvasW;
+  ctx.canvas.height = canvasH;
+  // Fill background
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  if (backgroundColor && backgroundColor !== 'transparent') {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.restore();
+  }
+  // --- Recursive subdivision ---
+  // Each node: {x, y, w, h, idxs[]}
+  // idxs: indices of images assigned to this node
+  function subdivide(x: number, y: number, w: number, h: number, idxs: number[]): { x: number, y: number, w: number, h: number, idx: number }[] {
+    if (idxs.length === 1) {
+      return [{ x, y, w, h, idx: idxs[0] }];
+    }
+    // Find best split: try both vertical and horizontal
+    let best = null;
+    let bestScore = Infinity;
+    for (let split = 1; split < idxs.length; ++split) {
+      // Try vertical split
+      const left = idxs.slice(0, split), right = idxs.slice(split);
+      const leftArea = left.reduce((a, i) => a + sizes[i].w * sizes[i].h, 0);
+      const rightArea = right.reduce((a, i) => a + sizes[i].w * sizes[i].h, 0);
+      const totalArea = leftArea + rightArea;
+      const v = w * leftArea / totalArea;
+      const vScore = Math.abs((v / h) - avgW / avgH) + Math.abs((w - v) / h - avgW / avgH);
+      // Try horizontal split
+      const h1 = h * leftArea / totalArea;
+      const hScore = Math.abs((w / h1) - avgW / avgH) + Math.abs(w / (h - h1) - avgW / avgH);
+      // Pick best
+      if (vScore < bestScore) {
+        bestScore = vScore;
+        best = { dir: 'v', split, left, right, v };
+      }
+      if (hScore < bestScore) {
+        bestScore = hScore;
+        best = { dir: 'h', split, left, right, h1 };
+      }
+    }
+    if (!best) return [];
+    if ('v' in best) {
+      // Vertical split
+      const leftRects = subdivide(x, y, best.v - spacing / 2, h, best.left);
+      const rightRects = subdivide(x + best.v + spacing / 2, y, w - best.v - spacing / 2, h, best.right);
+      return [...leftRects, ...rightRects];
+    } else {
+      // Horizontal split
+      const topRects = subdivide(x, y, w, best.h1 - spacing / 2, best.left);
+      const botRects = subdivide(x, y + best.h1 + spacing / 2, w, h - best.h1 - spacing / 2, best.right);
+      return [...topRects, ...botRects];
+    }
+  }
+  // Sort images by area descending for more stable splits
+  const idxs = sizes.map((_, i) => i).sort((a, b) => (sizes[b].w * sizes[b].h) - (sizes[a].w * sizes[a].h));
+  const rects = subdivide(spacing, spacing, canvasW - 2 * spacing, canvasH - 2 * spacing, idxs);
+  // Draw each image in its rect
+  for (const r of rects) {
+    const img = loadedImgs[r.idx];
+    let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+    let dx = r.x, dy = r.y, dw = r.w, dh = r.h;
+    if (fit) {
+      // Cover: scale and crop to fill tile
+      const scale = Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
+      sw = dw / scale;
+      sh = dh / scale;
+      sx = (img.naturalWidth - sw) / 2;
+      sy = (img.naturalHeight - sh) / 2;
+    } else {
+      // Contain: scale to fit inside tile
+      const scale = Math.min(dw / img.naturalWidth, dh / img.naturalHeight);
+      dw = img.naturalWidth * scale;
+      dh = img.naturalHeight * scale;
+      dx = r.x + (r.w - dw) / 2;
+      dy = r.y + (r.h - dh) / 2;
+    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(r.x, r.y, r.w, r.h);
+    ctx.clip();
+    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+    ctx.restore();
   }
 }
