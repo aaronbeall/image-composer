@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 
-export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'cluster' | 'boxed';
+export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'cluster' | 'subdivide';
 
 export interface ComposeImageItem {
   src: string;
@@ -120,8 +120,8 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
         case 'cluster':
           layoutRadialMasonry(images, ctx, loadedImgs, sizes, spacingPx, backgroundColor);
           break;
-        case 'boxed':
-          layoutBoxed(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
+        case 'subdivide':
+          layoutSubdivide(images, ctx, loadedImgs, sizes, spacingPx, fit, backgroundColor);
           break;
         default:
           ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -133,7 +133,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       }
       // --- Boxed Layout ---
       // Produces a layout like the attached image: a grid of rectangles, some spanning multiple rows/columns, filling the canvas.
-      function layoutBoxed(
+      function layoutSubdivide(
         images: ComposeImageItem[],
         ctx: CanvasRenderingContext2D,
         loadedImgs: HTMLImageElement[],

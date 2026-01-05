@@ -26,9 +26,9 @@ export default function AppNewLayout() {
   // Style controls state (for stubs)
   const [borderEnabled, setBorderEnabled] = useState(false);
   const [shadowEnabled, setShadowEnabled] = useState(false);
+  const [cornerRadius, setCornerRadius] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('images');
-  const [drawerTab, setDrawerTab] = useState('images');
 
   // Images state and drop/browse/paste logic
   const [images, setImages] = useState<ImageItem[]>([]);
@@ -324,9 +324,11 @@ export default function AppNewLayout() {
                     setActiveTab(tab.key);
                   }}
                   aria-label={tab.label}
-                  className={activeTab === tab.key
-                    ? 'bg-indigo-900 text-indigo-400 shadow border border-indigo-500'
-                    : 'text-neutral-400 hover:text-indigo-300'}
+                  className={
+                    sidebarOpen && activeTab === tab.key
+                      ? 'bg-indigo-900 text-indigo-400 shadow border border-indigo-500'
+                      : 'text-neutral-400 hover:text-indigo-300'
+                  }
                 >
                   {tab.icon}
                 </Button>
@@ -446,12 +448,20 @@ export default function AppNewLayout() {
                   <BackgroundColorSelector bgColor={bgColor} setBgColor={setBgColor} />
                 </div>
 
-                {/* Corner radius selector (stub) */}
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 text-xs font-medium">
+                {/* Corner radius selector (0-100%) - slider style */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-medium text-xs flex items-center justify-between">
                     <span>Corner Radius</span>
-                    <input type="range" min={0} max={40} className="w-32 accent-indigo-400" />
+                    <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
                   </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={cornerRadius}
+                    onChange={e => setCornerRadius(Number(e.target.value))}
+                    className="w-full accent-indigo-400"
+                  />
                 </div>
 
                 {/* Border selector (stub) */}
@@ -552,10 +562,37 @@ export default function AppNewLayout() {
               </div>
               {/* Status bar below the image composer */}
               <div className="w-full flex items-center justify-center bg-neutral-950/95 border-t border-neutral-800 py-2 z-10 min-h-[36px] max-h-[36px]">
-                <div className="text-xs text-neutral-400">
+                <div className="text-xs text-neutral-400 flex flex-row gap-4 items-center">
                   {canvasInfo.width > 0 && canvasInfo.height > 0 && (
                     <span>Image size: {canvasInfo.width} × {canvasInfo.height} px</span>
                   )}
+                  {/* Image count as a link to Images tab */}
+                  <button
+                    className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition px-1 py-0.5 rounded"
+                    style={{ fontSize: 'inherit' }}
+                    onClick={() => setActiveTab('images')}
+                    title="Show images"
+                  >
+                    {visibleImages.length} image{visibleImages.length === 1 ? '' : 's'}
+                  </button>
+                  {/* Add more button */}
+                  <button
+                    className="text-xs bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-1 rounded shadow ml-1"
+                    style={{ fontSize: 'inherit' }}
+                    onClick={handleBrowse}
+                    title="Add more images"
+                  >
+                    add more
+                  </button>
+                  {/* Layout as a link button */}
+                  <button
+                    className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition px-1 py-0.5 rounded"
+                    style={{ fontSize: 'inherit' }}
+                    onClick={() => setActiveTab('layout')}
+                    title="Show layout settings"
+                  >
+                    Layout: {layout}
+                  </button>
                 </div>
               </div>
             </div>
@@ -564,7 +601,7 @@ export default function AppNewLayout() {
         {/* Bottom nav and drawer (small screens) */}
         <Drawer>
           <div className="fixed bottom-0 left-0 w-full z-50 bg-neutral-950 border-t border-neutral-800 flex lg:hidden">
-            <Tabs value={drawerTab} onValueChange={setDrawerTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="flex flex-row w-full justify-between px-2 bg-transparent">
                 {SIDEBAR_TABS.map(tab => (
                   <DrawerTrigger asChild key={tab.key}>
@@ -575,7 +612,7 @@ export default function AppNewLayout() {
             </Tabs>
           </div>
           <DrawerContent className="lg:hidden bg-neutral-950 border-t border-neutral-800 rounded-t-2xl p-0 max-h-[80vh] flex flex-col">
-            <Tabs value={drawerTab} onValueChange={setDrawerTab} className="w-full h-full flex flex-col">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
               <TabsList className="hidden" />
               <TabsContent value="images">
                 <div className="p-4 flex flex-col gap-3">
@@ -665,12 +702,20 @@ export default function AppNewLayout() {
                       </div>
                     )}
                   </div>
-                  {/* Corner radius selector (stub) */}
-                  <div className="flex flex-col gap-2 mt-2">
-                    <label className="flex items-center gap-2 text-xs font-medium">
+                  {/* Corner radius selector (0-100%) - slider style */}
+                  <div className="flex flex-col gap-1 mt-2">
+                    <label className="font-medium text-xs flex items-center justify-between">
                       <span>Corner Radius</span>
-                      <input type="range" min={0} max={40} className="w-32 accent-indigo-400" />
+                      <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
                     </label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={cornerRadius}
+                      onChange={e => setCornerRadius(Number(e.target.value))}
+                      className="w-full accent-indigo-400"
+                    />
                   </div>
                   {/* Drop shadow selector (stub) */}
                   <div className="flex flex-col gap-2 mt-2">
@@ -793,8 +838,8 @@ function LayoutTypeSelector({ layout, setLayout }: LayoutTypeSelectorProps) {
       ),
     },
     {
-      key: 'boxed',
-      label: 'Boxed',
+      key: 'subdivide',
+      label: 'Subdivide',
       icon: (
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           {/* Example icon: 2x2 grid with a border */}
