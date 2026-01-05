@@ -1,7 +1,6 @@
 
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,6 +8,8 @@ import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Download, Eye, EyeOff, ImagePlus, LayoutGrid, Menu, Paintbrush, Share2, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImageComposer, type LayoutType } from './ImageComposer';
+import { ColorSwatch } from './components/ColorSwatch';
+import { ToggleSection } from './components/ToggleSection';
 
 const SIDEBAR_TABS = [
   { key: 'images', icon: <ImagePlus size={20} />, label: 'Images' },
@@ -27,6 +28,8 @@ type ImageItem = {
 export default function App() {
   // Style controls state (for stubs)
   const [borderEnabled, setBorderEnabled] = useState(false);
+  const [borderWidth, setBorderWidth] = useState(20);
+  const [borderColor, setBorderColor] = useState('#ffffff');
   const [shadowEnabled, setShadowEnabled] = useState(false);
   const [cornerRadius, setCornerRadius] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -466,50 +469,25 @@ export default function App() {
                   />
                 </div>
 
-                {/* Border selector (stub) */}
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 text-xs font-medium">
-                    <Checkbox
-                      checked={borderEnabled}
-                      onCheckedChange={setBorderEnabled}
-                      className="h-4 w-4"
-                    />
-                    Border
-                  </label>
-                  {borderEnabled && (
-                    <div className="flex flex-row gap-2 ml-6 items-center">
-                      <span className="text-xs">Size</span>
-                      <Slider defaultValue={[0]} min={0} max={20} className="w-24" />
-                      <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
-                    </div>
-                  )}
-                </div>
+                {/* Border selector */}
+                <ToggleSection label="Border" enabled={borderEnabled} onToggle={setBorderEnabled}>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Size</span>
+                      <span className="text-neutral-400 text-xs">{borderWidth}</span>
+                    </label>
+                    <Slider value={[borderWidth]} min={0} max={100} onValueChange={val => setBorderWidth(val[0])} className="w-full" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium">Color</label>
+                    <ColorSwatch value={borderColor} onChange={setBorderColor} />
+                  </div>
+                </ToggleSection>
 
                 {/* Drop shadow selector (stub) */}
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 text-xs font-medium">
-                    <Checkbox
-                      checked={shadowEnabled}
-                      onCheckedChange={setShadowEnabled}
-                      className="h-4 w-4"
-                    />
-                    Drop Shadow
-                  </label>
-                  {shadowEnabled && (
-                    <div className="flex flex-row flex-wrap gap-2 ml-6 items-center">
-                      <span className="text-xs">Color</span>
-                      <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
-                      <span className="text-xs">Opacity</span>
-                      <Slider defaultValue={[50]} min={0} max={100} className="w-16" />
-                      <span className="text-xs">Angle</span>
-                      <Slider defaultValue={[0]} min={0} max={360} className="w-16" />
-                      <span className="text-xs">Distance</span>
-                      <Slider defaultValue={[0]} min={0} max={40} className="w-16" />
-                      <span className="text-xs">Blur</span>
-                      <Slider defaultValue={[0]} min={0} max={40} className="w-16" />
-                    </div>
-                  )}
-                </div>
+                <ToggleSection label="Drop Shadow" enabled={shadowEnabled} onToggle={setShadowEnabled}>
+                  <div className="text-xs text-neutral-500">Drop shadow controls coming soon...</div>
+                </ToggleSection>
               </div>
             )}
           </div>
@@ -558,6 +536,8 @@ export default function App() {
                   scale={scale / 100}
                   backgroundColor={bgColor}
                   cornerRadius={cornerRadius}
+                  borderWidth={borderEnabled ? borderWidth : 0}
+                  borderColor={borderColor}
                   onUpdate={setCanvasInfo}
                 />
               </div>
@@ -688,26 +668,8 @@ export default function App() {
                     <div className="font-semibold text-sm mb-2">Background</div>
                     <BackgroundColorSelector bgColor={bgColor} setBgColor={setBgColor} />
                   </div>
-                  {/* Border selector (stub) */}
-                  <div className="flex flex-col gap-2 mt-4">
-                    <label className="flex items-center gap-2 text-xs font-medium">
-                      <Checkbox
-                        checked={borderEnabled}
-                        onCheckedChange={setBorderEnabled}
-                        className="h-4 w-4"
-                      />
-                      Border
-                    </label>
-                    {borderEnabled && (
-                      <div className="flex flex-row gap-2 ml-6 items-center">
-                        <span className="text-xs">Size</span>
-                        <Slider defaultValue={[0]} min={0} max={20} className="w-24" />
-                        <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
-                      </div>
-                    )}
-                  </div>
                   {/* Corner radius selector (0-100%) - slider style */}
-                  <div className="flex flex-col gap-1 mt-2">
+                  <div className="flex flex-col gap-1 mt-4">
                     <label className="font-medium text-xs flex items-center justify-between">
                       <span>Corner Radius</span>
                       <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
@@ -720,18 +682,26 @@ export default function App() {
                       className="w-full"
                     />
                   </div>
+                  {/* Border selector */}
+                  <div className="mt-4">
+                    <ToggleSection label="Border" enabled={borderEnabled} onToggle={setBorderEnabled}>
+                      <div className="flex flex-col gap-1">
+                        <label className="font-medium text-xs flex items-center justify-between">
+                          <span>Size</span>
+                          <span className="text-neutral-400 text-xs">{borderWidth}</span>
+                        </label>
+                        <Slider value={[borderWidth]} min={0} max={100} onValueChange={val => setBorderWidth(val[0])} className="w-full" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium">Color</label>
+                        <ColorSwatch value={borderColor} onChange={setBorderColor} />
+                      </div>
+                    </ToggleSection>
+                  </div>
                   {/* Drop shadow selector (stub) */}
-                  <div className="flex flex-col gap-2 mt-2">
-                    <label className="flex items-center gap-2 text-xs font-medium">
-                      <Checkbox
-                        checked={shadowEnabled}
-                        onCheckedChange={setShadowEnabled}
-                        className="h-4 w-4"
-                      />
-                      Drop Shadow
-                    </label>
-                    {shadowEnabled && (
-                      <div className="flex flex-row flex-wrap gap-2 ml-6 items-center">
+                  <div className="mt-4">
+                    <ToggleSection label="Drop Shadow" enabled={shadowEnabled} onToggle={setShadowEnabled}>
+                      <div className="flex flex-row flex-wrap gap-2 items-center">
                         <span className="text-xs">Color</span>
                         <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
                         <span className="text-xs">Opacity</span>
@@ -743,7 +713,7 @@ export default function App() {
                         <span className="text-xs">Blur</span>
                         <Slider defaultValue={[0]} min={0} max={40} className="w-16" />
                       </div>
-                    )}
+                    </ToggleSection>
                   </div>
                 </div>
               </TabsContent>
@@ -960,21 +930,7 @@ function BackgroundColorSelector({ bgColor, setBgColor }: BackgroundColorSelecto
         />
       ))}
       {/* Custom color */}
-      <label
-        className={`w-7 h-7 rounded border border-neutral-700 mx-0 cursor-pointer relative outline-none inline-block flex items-center justify-center ${bgColor !== 'transparent' && !presets.map(p => p.value).includes(bgColor) ? 'border-2 border-indigo-400 shadow' : ''}`}
-        title="Custom color"
-        style={{ background: bgColor !== 'transparent' ? bgColor : 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 10px 10px' }}
-      >
-        <span className="absolute left-1.5 top-1.5 text-base text-neutral-700 pointer-events-none">🎨</span>
-        <input
-          type="color"
-          value={bgColor !== 'transparent' ? bgColor : '#ffffff'}
-          onChange={e => setBgColor(e.target.value)}
-          className="absolute left-0 top-0 w-7 h-7 opacity-0 cursor-pointer border-none p-0 z-10"
-          tabIndex={-1}
-          aria-label="Custom color"
-        />
-      </label>
+      <ColorSwatch value={bgColor} onChange={setBgColor} isTransparent={bgColor === 'transparent'} selected={bgColor !== 'transparent' && !presets.map(p => p.value).includes(bgColor)} />
     </div>
   );
 }

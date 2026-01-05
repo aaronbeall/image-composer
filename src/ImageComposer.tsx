@@ -19,9 +19,8 @@ export interface LayoutOptions {
 export interface StyleOptions {
   backgroundColor?: string;
   cornerRadius?: number;
-  border?: boolean;
+  borderWidth?: number;
   borderColor?: string;
-  borderSize?: number;
   shadowColor?: string;
   shadowOffsetX?: number;
   shadowOffsetY?: number;
@@ -75,7 +74,7 @@ interface LayoutResult {
   items: LayoutItem[];
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, backgroundColor = 'transparent', cornerRadius = 0, style, onUpdate }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, backgroundColor = 'transparent', cornerRadius = 0, borderWidth = 0, borderColor = '#ffffff', style, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [loadedImages, setLoadedImages] = useState<HTMLImageElement[] | null>(null);
@@ -170,7 +169,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawComposition(ctx, layoutResult, images, loadedImages, fit, backgroundColor, cornerRadius);
+    drawComposition(ctx, layoutResult, images, loadedImages, fit, backgroundColor, cornerRadius, borderWidth, borderColor);
 
     onUpdate({
       width: canvas.width,
@@ -178,7 +177,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       getImageData: () => canvas.toDataURL('image/png'),
       getImageBlob: () => new Promise(resolve => canvas.toBlob(resolve, 'image/png')),
     });
-  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, onUpdate]);
+  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, borderWidth, borderColor, onUpdate]);
 
   return (
     <canvas
@@ -205,7 +204,9 @@ function drawComposition(
   loadedImgs: HTMLImageElement[],
   fit: boolean,
   backgroundColor: string,
-  cornerRadius: number = 0
+  cornerRadius: number = 0,
+  borderWidth: number = 0,
+  borderColor: string = '#ffffff'
 ) {
   // Set canvas size
   ctx.canvas.width = layout.canvasWidth;
@@ -224,9 +225,13 @@ function drawComposition(
   const minItemSize = layout.items.length ? Math.min(...layout.items.map(i => Math.min(i.w, i.h))) : 0;
   const cornerRadiusPx = cornerRadius > 0 && minItemSize > 0 ? (cornerRadius / 100) * (minItemSize / 2) : 0;
 
+  // Calculate border width in pixels (0-20 scale relative to average image size)
+  const avgItemSize = layout.items.length ? (layout.items.reduce((sum, i) => sum + Math.min(i.w, i.h), 0) / layout.items.length) : 0;
+  const borderWidthPx = borderWidth > 0 && avgItemSize > 0 ? (borderWidth / 100) * (avgItemSize * 0.1) : 0;
+
   // Draw each image
   for (const item of layout.items) {
-    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadiusPx);
+    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadiusPx, borderWidthPx, borderColor);
   }
 }
 
@@ -236,7 +241,9 @@ function drawImage(
   imageData: ComposeImageItem,
   img: HTMLImageElement,
   fit: boolean,
-  cornerRadiusPx: number = 0
+  cornerRadiusPx: number = 0,
+  borderWidthPx: number = 0,
+  borderColor: string = '#ffffff'
 ) {
   const { x, y, w, h } = item;
 
@@ -286,6 +293,35 @@ function drawImage(
   ctx.clip();
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
   ctx.restore();
+
+  // Draw border if needed
+  if (borderWidthPx > 0) {
+    ctx.save();
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = borderWidthPx;
+
+    if (cornerRadiusPx > 0) {
+      const maxRadius = Math.min(w, h) / 2;
+      const radiusPx = Math.min(cornerRadiusPx, maxRadius);
+
+      ctx.beginPath();
+      ctx.moveTo(x + radiusPx, y);
+      ctx.lineTo(x + w - radiusPx, y);
+      ctx.arcTo(x + w, y, x + w, y + radiusPx, radiusPx);
+      ctx.lineTo(x + w, y + h - radiusPx);
+      ctx.arcTo(x + w, y + h, x + w - radiusPx, y + h, radiusPx);
+      ctx.lineTo(x + radiusPx, y + h);
+      ctx.arcTo(x, y + h, x, y + h - radiusPx, radiusPx);
+      ctx.lineTo(x, y + radiusPx);
+      ctx.arcTo(x, y, x + radiusPx, y, radiusPx);
+      ctx.closePath();
+      ctx.stroke();
+    } else {
+      // Simple rectangular border
+      ctx.strokeRect(x + borderWidthPx / 2, y + borderWidthPx / 2, w - borderWidthPx, h - borderWidthPx);
+    }
+    ctx.restore();
+  }
 
   // Draw label and description
   if (imageData.label) {
