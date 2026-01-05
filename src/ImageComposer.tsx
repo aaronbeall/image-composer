@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'cluster' | 'squarified';
 
@@ -28,26 +28,22 @@ export interface StyleOptions {
   shadowBlur?: number;
 }
 
-interface ImageComposerProps {
+interface ImageComposerProps extends LayoutOptions, StyleOptions {
   images: ComposeImageItem[];
   normalizeSize: boolean;
   layout: LayoutType;
-  layoutOptions: LayoutOptions;
-  styleOptions: StyleOptions;
   onUpdate(info: { width: number; height: number; getImageData: () => string; getImageBlob: () => Promise<Blob | null>; }): void;
   style?: React.CSSProperties;
 }
 
-// Utility to load all images and get their natural sizes
-async function loadImages(images: ComposeImageItem[]) {
-  return Promise.all(images.map(img => {
-    return new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new window.Image();
-      image.onload = () => resolve(image);
-      image.onerror = reject;
-      image.src = img.src;
-    });
-  }));
+// Utility to load a single image (used with caching below)
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new window.Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
 }
 
 type NormalizeMode = 'both' | 'width' | 'height';
@@ -79,102 +75,110 @@ interface LayoutResult {
   items: LayoutItem[];
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, layoutOptions, styleOptions, style, onUpdate }) => {
-  const { spacing = 0, fit = false, scale = 1 } = layoutOptions;
-  const { backgroundColor = 'transparent' } = styleOptions;
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, backgroundColor = 'transparent', cornerRadius = 0, style, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
+  const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const [loadedImages, setLoadedImages] = useState<HTMLImageElement[] | null>(null);
+  // Phase 1: load images (with caching)
   useEffect(() => {
-    let isMounted = true;
-    const run = async () => {
-      if (!images.length) return;
-      const loadedImgs = await loadImages(images);
-      if (!isMounted) return;
-      let norm = { width: 0, height: 0 };
-      if (normalizeSize) {
-        // Choose normalization mode based on layout
-        let mode: NormalizeMode = 'both';
-        if (layout === 'single-row') mode = 'height';
-        else if (layout === 'single-column' || layout === 'masonry') mode = 'width';
-        norm = getNormalizedSize(loadedImgs, mode);
+    let cancelled = false;
+    const load = async () => {
+      if (!images.length) {
+        setLoadedImages([]);
+        return;
       }
-      const sizes = loadedImgs.map(img => {
-        let w = img.naturalWidth, h = img.naturalHeight;
-        if (normalizeSize) {
-          if (layout === 'single-row' && norm.height) {
-            // Only normalize height
-            w = Math.round(norm.height * (w / h));
-            h = norm.height;
-          } else if ((layout === 'single-column' || layout === 'masonry') && norm.width) {
-            // Only normalize width
-            h = Math.round(norm.width * (h / w));
+      const cache = imageCacheRef.current;
+      const loadedImgs = await Promise.all(images.map(async img => {
+        const cached = cache.get(img.src);
+        if (cached) return cached;
+        const loaded = await loadImage(img.src);
+        cache.set(img.src, loaded);
+        return loaded;
+      }));
+      if (cancelled) return;
+      setLoadedImages(loadedImgs);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [images]);
+
+  // Phase 2: compute layout (memoized) when images or layout inputs change
+  const layoutResult = useMemo(() => {
+    if (!loadedImages || !loadedImages.length || loadedImages.length !== images.length) return null;
+
+    let norm = { width: 0, height: 0 };
+    if (normalizeSize) {
+      let mode: NormalizeMode = 'both';
+      if (layout === 'single-row') mode = 'height';
+      else if (layout === 'single-column' || layout === 'masonry') mode = 'width';
+      norm = getNormalizedSize(loadedImages, mode);
+    }
+
+    const sizes = loadedImages.map(img => {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (normalizeSize) {
+        if (layout === 'single-row' && norm.height) {
+          w = Math.round(norm.height * (w / h));
+          h = norm.height;
+        } else if ((layout === 'single-column' || layout === 'masonry') && norm.width) {
+          h = Math.round(norm.width * (h / w));
+          w = norm.width;
+        } else if (norm.width && norm.height) {
+          const aspect = w / h;
+          if (aspect > norm.width / norm.height) {
             w = norm.width;
-          } else if (norm.width && norm.height) {
-            // Both
-            const aspect = w / h;
-            if (aspect > norm.width / norm.height) {
-              w = norm.width;
-              h = Math.round(norm.width / aspect);
-            } else {
-              h = norm.height;
-              w = Math.round(norm.height * aspect);
-            }
+            h = Math.round(norm.width / aspect);
+          } else {
+            h = norm.height;
+            w = Math.round(norm.height * aspect);
           }
         }
-        return { w: w * scale, h: h * scale };
-      });
-      // Calculate spacing size relative to average image size
-      const avgW = sizes.reduce((a, s) => a + s.w, 0) / sizes.length;
-      const avgH = sizes.reduce((a, s) => a + s.h, 0) / sizes.length;
-      // Spacing is 0-100, mapped to 0 to 0.2 * avg (0, 0.002, ..., 0.2)
-      const spacingFrac = spacing / 100 * 0.2; // 0 to 0.2
-      const spacingPx = Math.round(spacingFrac * ((avgW + avgH) / 2));
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      // Calculate layout (separated from drawing)
-      let layoutResult: LayoutResult;
-      switch (layout) {
-        case 'single-row':
-          layoutResult = layoutSingleRow(loadedImgs, sizes, spacingPx, fit);
-          break;
-        case 'single-column':
-          layoutResult = layoutSingleColumn(loadedImgs, sizes, spacingPx, fit);
-          break;
-        case 'grid':
-          layoutResult = layoutGrid(loadedImgs, sizes, spacingPx, fit);
-          break;
-        case 'masonry':
-          layoutResult = layoutMasonry(loadedImgs, sizes, spacingPx, fit);
-          break;
-        case 'packed':
-          layoutResult = layoutPacked(sizes, spacingPx);
-          break;
-        case 'cluster':
-          layoutResult = layoutRadialMasonry(sizes, spacingPx);
-          break;
-        case 'squarified':
-          layoutResult = layoutSquarified(sizes, spacingPx);
-          break;
-        default:
-          layoutResult = { canvasWidth: 800, canvasHeight: 600, items: [] };
       }
-
-      // Draw the layout
-      drawImages(ctx, layoutResult, images, loadedImgs, fit, backgroundColor);
-    };
-    run();
-    const canvas = canvasRef.current;
-    onUpdate({
-      width: canvas?.width ?? 0,
-      height: canvas?.height ?? 0,
-      getImageData: () => canvas?.toDataURL('image/png') ?? '',
-      getImageBlob: () => new Promise(resolve => canvas?.toBlob(resolve, 'image/png')),
+      return { w: w * scale, h: h * scale };
     });
-    return () => { isMounted = false; };
-  }, [images, normalizeSize, layout, spacing, fit, backgroundColor, scale, onUpdate]);
+
+    const avgW = sizes.reduce((a, s) => a + s.w, 0) / sizes.length;
+    const avgH = sizes.reduce((a, s) => a + s.h, 0) / sizes.length;
+    const spacingFrac = spacing / 100 * 0.2;
+    const spacingPx = Math.round(spacingFrac * ((avgW + avgH) / 2));
+
+    switch (layout) {
+      case 'single-row':
+        return layoutSingleRow(loadedImages, sizes, spacingPx, fit);
+      case 'single-column':
+        return layoutSingleColumn(loadedImages, sizes, spacingPx, fit);
+      case 'grid':
+        return layoutGrid(loadedImages, sizes, spacingPx, fit);
+      case 'masonry':
+        return layoutMasonry(loadedImages, sizes, spacingPx, fit);
+      case 'packed':
+        return layoutPacked(sizes, spacingPx);
+      case 'cluster':
+        return layoutRadialMasonry(sizes, spacingPx);
+      case 'squarified':
+        return layoutSquarified(sizes, spacingPx);
+      default:
+        return { canvasWidth: 800, canvasHeight: 600, items: [] } as LayoutResult;
+    }
+  }, [loadedImages, images, normalizeSize, layout, spacing, fit, scale]);
+
+  // Phase 3: draw composition when layout or style changes
+  useEffect(() => {
+    if (!layoutResult || !loadedImages || loadedImages.length !== images.length) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    drawComposition(ctx, layoutResult, images, loadedImages, fit, backgroundColor, cornerRadius);
+
+    onUpdate({
+      width: canvas.width,
+      height: canvas.height,
+      getImageData: () => canvas.toDataURL('image/png'),
+      getImageBlob: () => new Promise(resolve => canvas.toBlob(resolve, 'image/png')),
+    });
+  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, onUpdate]);
 
   return (
     <canvas
@@ -194,13 +198,14 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
 
 
 // --- Drawing functions ---
-function drawImages(
+function drawComposition(
   ctx: CanvasRenderingContext2D,
   layout: LayoutResult,
   images: ComposeImageItem[],
   loadedImgs: HTMLImageElement[],
   fit: boolean,
-  backgroundColor: string
+  backgroundColor: string,
+  cornerRadius: number = 0
 ) {
   // Set canvas size
   ctx.canvas.width = layout.canvasWidth;
@@ -218,7 +223,7 @@ function drawImages(
 
   // Draw each image
   for (const item of layout.items) {
-    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit);
+    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadius);
   }
 }
 
@@ -227,7 +232,8 @@ function drawImage(
   item: LayoutItem,
   imageData: ComposeImageItem,
   img: HTMLImageElement,
-  fit: boolean
+  fit: boolean,
+  cornerRadius: number = 0
 ) {
   const { x, y, w, h } = item;
 
@@ -253,7 +259,28 @@ function drawImage(
   // Clip and draw
   ctx.save();
   ctx.beginPath();
-  ctx.rect(x, y, w, h);
+
+  if (cornerRadius > 0) {
+    // Convert cornerRadius from 0-100 to actual pixel radius (max is half of smallest dimension)
+    const maxRadius = Math.min(w, h) / 2;
+    const radiusPx = (cornerRadius / 100) * maxRadius;
+
+    // Draw rounded rectangle path
+    ctx.moveTo(x + radiusPx, y);
+    ctx.lineTo(x + w - radiusPx, y);
+    ctx.arcTo(x + w, y, x + w, y + radiusPx, radiusPx);
+    ctx.lineTo(x + w, y + h - radiusPx);
+    ctx.arcTo(x + w, y + h, x + w - radiusPx, y + h, radiusPx);
+    ctx.lineTo(x + radiusPx, y + h);
+    ctx.arcTo(x, y + h, x, y + h - radiusPx, radiusPx);
+    ctx.lineTo(x, y + radiusPx);
+    ctx.arcTo(x, y, x + radiusPx, y, radiusPx);
+    ctx.closePath();
+  } else {
+    // Simple rectangular clip
+    ctx.rect(x, y, w, h);
+  }
+
   ctx.clip();
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
   ctx.restore();

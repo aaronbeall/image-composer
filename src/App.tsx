@@ -553,8 +553,11 @@ export default function App() {
                   images={visibleImages}
                   normalizeSize={normalizeSize}
                   layout={layout}
-                  layoutOptions={{ spacing, fit, scale: scale / 100 }}
-                  styleOptions={{ backgroundColor: bgColor }}
+                  spacing={spacing}
+                  fit={fit}
+                  scale={scale / 100}
+                  backgroundColor={bgColor}
+                  cornerRadius={cornerRadius}
                   onUpdate={setCanvasInfo}
                 />
               </div>
