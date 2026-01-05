@@ -221,9 +221,12 @@ function drawComposition(
     ctx.restore();
   }
 
+  const minItemSize = layout.items.length ? Math.min(...layout.items.map(i => Math.min(i.w, i.h))) : 0;
+  const cornerRadiusPx = cornerRadius > 0 && minItemSize > 0 ? (cornerRadius / 100) * (minItemSize / 2) : 0;
+
   // Draw each image
   for (const item of layout.items) {
-    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadius);
+    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadiusPx);
   }
 }
 
@@ -233,7 +236,7 @@ function drawImage(
   imageData: ComposeImageItem,
   img: HTMLImageElement,
   fit: boolean,
-  cornerRadius: number = 0
+  cornerRadiusPx: number = 0
 ) {
   const { x, y, w, h } = item;
 
@@ -260,10 +263,9 @@ function drawImage(
   ctx.save();
   ctx.beginPath();
 
-  if (cornerRadius > 0) {
-    // Convert cornerRadius from 0-100 to actual pixel radius (max is half of smallest dimension)
+  if (cornerRadiusPx > 0) {
     const maxRadius = Math.min(w, h) / 2;
-    const radiusPx = (cornerRadius / 100) * maxRadius;
+    const radiusPx = Math.min(cornerRadiusPx, maxRadius);
 
     // Draw rounded rectangle path
     ctx.moveTo(x + radiusPx, y);
