@@ -573,7 +573,10 @@ export default function AppNewLayout() {
                   <button
                     className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition px-1 py-0.5 rounded"
                     style={{ fontSize: 'inherit' }}
-                    onClick={() => setActiveTab('images')}
+                    onClick={() => {
+                      setActiveTab('images');
+                      setSidebarOpen(true);
+                    }}
                     title="Show images"
                   >
                     {visibleImages.length} image{visibleImages.length === 1 ? '' : 's'}
@@ -591,7 +594,10 @@ export default function AppNewLayout() {
                   <button
                     className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition px-1 py-0.5 rounded"
                     style={{ fontSize: 'inherit' }}
-                    onClick={() => setActiveTab('layout')}
+                    onClick={() => {
+                      setActiveTab('layout');
+                      setSidebarOpen(true);
+                    }}
                     title="Show layout settings"
                   >
                     Layout: {layout}
