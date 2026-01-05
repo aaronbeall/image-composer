@@ -1,6 +1,8 @@
 
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -404,13 +406,12 @@ export default function App() {
                     <span>Spacing</span>
                     <span className="text-neutral-400 text-xs">{spacing}</span>
                   </label>
-                  <input
-                    type="range"
+                  <Slider
+                    value={[spacing]}
                     min={0}
                     max={100}
-                    value={spacing}
-                    onChange={e => setSpacing(Number(e.target.value))}
-                    className="w-full accent-indigo-400"
+                    onValueChange={val => setSpacing(val[0])}
+                    className="w-full"
                   />
                 </div>
                 {/* Scale slider */}
@@ -419,13 +420,12 @@ export default function App() {
                     <span>Scale</span>
                     <span className="text-neutral-400 text-xs">{scale}%</span>
                   </label>
-                  <input
-                    type="range"
+                  <Slider
+                    value={[scale]}
                     min={1}
                     max={100}
-                    value={scale}
-                    onChange={e => setScale(Number(e.target.value))}
-                    className="w-full accent-indigo-400"
+                    onValueChange={val => setScale(val[0])}
+                    className="w-full"
                   />
                 </div>
                 {/* Toggles */}
@@ -457,31 +457,29 @@ export default function App() {
                     <span>Corner Radius</span>
                     <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
                   </label>
-                  <input
-                    type="range"
+                  <Slider
+                    value={[cornerRadius]}
                     min={0}
                     max={100}
-                    value={cornerRadius}
-                    onChange={e => setCornerRadius(Number(e.target.value))}
-                    className="w-full accent-indigo-400"
+                    onValueChange={val => setCornerRadius(val[0])}
+                    className="w-full"
                   />
                 </div>
 
                 {/* Border selector (stub) */}
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2 text-xs font-medium">
-                    <input
-                      type="checkbox"
-                      className="accent-indigo-500"
+                    <Checkbox
                       checked={borderEnabled}
-                      onChange={e => setBorderEnabled(e.target.checked)}
+                      onCheckedChange={setBorderEnabled}
+                      className="h-4 w-4"
                     />
                     Border
                   </label>
                   {borderEnabled && (
                     <div className="flex flex-row gap-2 ml-6 items-center">
                       <span className="text-xs">Size</span>
-                      <input type="range" min={0} max={20} className="w-24 accent-indigo-400" />
+                      <Slider defaultValue={[0]} min={0} max={20} className="w-24" />
                       <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
                     </div>
                   )}
@@ -490,11 +488,10 @@ export default function App() {
                 {/* Drop shadow selector (stub) */}
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2 text-xs font-medium">
-                    <input
-                      type="checkbox"
-                      className="accent-indigo-500"
+                    <Checkbox
                       checked={shadowEnabled}
-                      onChange={e => setShadowEnabled(e.target.checked)}
+                      onCheckedChange={setShadowEnabled}
+                      className="h-4 w-4"
                     />
                     Drop Shadow
                   </label>
@@ -503,13 +500,13 @@ export default function App() {
                       <span className="text-xs">Color</span>
                       <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
                       <span className="text-xs">Opacity</span>
-                      <input type="range" min={0} max={100} className="w-16 accent-indigo-400" />
+                      <Slider defaultValue={[50]} min={0} max={100} className="w-16" />
                       <span className="text-xs">Angle</span>
-                      <input type="range" min={0} max={360} className="w-16 accent-indigo-400" />
+                      <Slider defaultValue={[0]} min={0} max={360} className="w-16" />
                       <span className="text-xs">Distance</span>
-                      <input type="range" min={0} max={40} className="w-16 accent-indigo-400" />
+                      <Slider defaultValue={[0]} min={0} max={40} className="w-16" />
                       <span className="text-xs">Blur</span>
-                      <input type="range" min={0} max={40} className="w-16 accent-indigo-400" />
+                      <Slider defaultValue={[0]} min={0} max={40} className="w-16" />
                     </div>
                   )}
                 </div>
@@ -645,13 +642,12 @@ export default function App() {
                       <span>Spacing</span>
                       <span className="text-neutral-400 text-xs">{spacing}</span>
                     </label>
-                    <input
-                      type="range"
+                    <Slider
+                      value={[spacing]}
                       min={0}
                       max={100}
-                      value={spacing}
-                      onChange={e => setSpacing(Number(e.target.value))}
-                      className="w-full accent-indigo-400"
+                      onValueChange={val => setSpacing(val[0])}
+                      className="w-full"
                     />
                   </div>
                   {/* Scale slider */}
@@ -660,13 +656,12 @@ export default function App() {
                       <span>Scale</span>
                       <span className="text-neutral-400 text-xs">{scale}%</span>
                     </label>
-                    <input
-                      type="range"
+                    <Slider
+                      value={[scale]}
                       min={1}
                       max={100}
-                      value={scale}
-                      onChange={e => setScale(Number(e.target.value))}
-                      className="w-full accent-indigo-400"
+                      onValueChange={val => setScale(val[0])}
+                      className="w-full"
                     />
                   </div>
                   {/* Toggles */}
@@ -695,18 +690,17 @@ export default function App() {
                   {/* Border selector (stub) */}
                   <div className="flex flex-col gap-2 mt-4">
                     <label className="flex items-center gap-2 text-xs font-medium">
-                      <input
-                        type="checkbox"
-                        className="accent-indigo-500"
+                      <Checkbox
                         checked={borderEnabled}
-                        onChange={e => setBorderEnabled(e.target.checked)}
+                        onCheckedChange={setBorderEnabled}
+                        className="h-4 w-4"
                       />
                       Border
                     </label>
                     {borderEnabled && (
                       <div className="flex flex-row gap-2 ml-6 items-center">
                         <span className="text-xs">Size</span>
-                        <input type="range" min={0} max={20} className="w-24 accent-indigo-400" />
+                        <Slider defaultValue={[0]} min={0} max={20} className="w-24" />
                         <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
                       </div>
                     )}
@@ -717,23 +711,21 @@ export default function App() {
                       <span>Corner Radius</span>
                       <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
                     </label>
-                    <input
-                      type="range"
+                    <Slider
+                      value={[cornerRadius]}
                       min={0}
                       max={100}
-                      value={cornerRadius}
-                      onChange={e => setCornerRadius(Number(e.target.value))}
-                      className="w-full accent-indigo-400"
+                      onValueChange={val => setCornerRadius(val[0])}
+                      className="w-full"
                     />
                   </div>
                   {/* Drop shadow selector (stub) */}
                   <div className="flex flex-col gap-2 mt-2">
                     <label className="flex items-center gap-2 text-xs font-medium">
-                      <input
-                        type="checkbox"
-                        className="accent-indigo-500"
+                      <Checkbox
                         checked={shadowEnabled}
-                        onChange={e => setShadowEnabled(e.target.checked)}
+                        onCheckedChange={setShadowEnabled}
+                        className="h-4 w-4"
                       />
                       Drop Shadow
                     </label>
@@ -742,13 +734,13 @@ export default function App() {
                         <span className="text-xs">Color</span>
                         <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
                         <span className="text-xs">Opacity</span>
-                        <input type="range" min={0} max={100} className="w-16 accent-indigo-400" />
+                        <Slider defaultValue={[50]} min={0} max={100} className="w-16" />
                         <span className="text-xs">Angle</span>
-                        <input type="range" min={0} max={360} className="w-16 accent-indigo-400" />
+                        <Slider defaultValue={[0]} min={0} max={360} className="w-16" />
                         <span className="text-xs">Distance</span>
-                        <input type="range" min={0} max={40} className="w-16 accent-indigo-400" />
+                        <Slider defaultValue={[0]} min={0} max={40} className="w-16" />
                         <span className="text-xs">Blur</span>
-                        <input type="range" min={0} max={40} className="w-16 accent-indigo-400" />
+                        <Slider defaultValue={[0]} min={0} max={40} className="w-16" />
                       </div>
                     )}
                   </div>
