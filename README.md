@@ -5,4 +5,5 @@ Paste/select images into a single composed image, with layout, spacing, and fitt
 
 [Try it online](https://aaronbeall.github.io/image-composer/)
 
-<img width="1728" height="957" alt="image" src="https://github.com/user-attachments/assets/fa1de2b5-31ac-4d65-af5a-f8bfd2c011b0" />
+<img width="1723" height="959" alt="image" src="https://github.com/user-attachments/assets/3e2f7bcf-a10a-43f5-9c07-66e24b28f354" />
+
