@@ -5,8 +5,9 @@ import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { addAlphaToHex, cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Download, Eye, EyeOff, HelpCircle, ImagePlus, Mail, LayoutGrid, Paintbrush, Share2, Upload, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Download, Eye, EyeOff, HelpCircle, ImagePlus, Mail, LayoutGrid, Paintbrush, Share2, Upload, X, AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SiPatreon, SiBuymeacoffee } from 'react-icons/si';
 import logoSvg from '@/assets/logo.svg';
@@ -1080,10 +1081,22 @@ export default function App() {
                 />
               </div>
               {/* Status bar below the image composer */}
-              <div className="w-full flex items-center justify-center bg-neutral-950/95 border-t border-neutral-800 py-2 z-10 min-h-[36px] max-h-[36px]">
+              <div className="w-full flex items-center justify-center bg-neutral-950/95 border-t border-neutral-800 py-2 z-10 min-h-9 max-h-9">
                 <div className="text-xs text-neutral-400 flex flex-row gap-3 items-center">
                   {canvasInfo.width > 0 && canvasInfo.height > 0 && (
-                    <span>Image size: {canvasInfo.width} × {canvasInfo.height} px</span>
+                    <>
+                      <span>Image size: {canvasInfo.width} × {canvasInfo.height} px</span>
+                      {(canvasInfo.width >= 3200 || canvasInfo.height >= 3200) && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertTriangle size={16} className="text-orange-400 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            3200px is the maximum size. Contact support for larger image sizes.
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </>
                   )}
                   <div className="inline-flex items-center gap-1">
                     {/* Image count as a link to Images tab */}
