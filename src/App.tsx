@@ -413,6 +413,13 @@ export default function App() {
       setShadowOpacity(Math.floor(Math.random() * 41) + 40); // 40-80
       setShadowColor('#000000');
     }
+
+    const enableCornerRadius = randomBool(0.5);
+    if (enableCornerRadius) {
+      setCornerRadius(Math.floor(Math.random() * 101)); // 0-100
+    } else {
+      setCornerRadius(0);
+    }
   };
 
   return (
