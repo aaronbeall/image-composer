@@ -3,7 +3,7 @@ import type { Effect } from './App';
 
 import { hashString, mulberry32 } from '@/lib/utils';
 
-export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'cluster' | 'squarified';
+export type LayoutType = 'grid' | 'packed' | 'masonry' | 'lanes' | 'single-column' | 'single-row' | 'cluster' | 'squarified';
 
 export interface ComposeImageItem {
   id?: string;
@@ -170,6 +170,8 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
         return layoutRadialMasonry(sizes, spacingPx);
       case 'squarified':
         return layoutSquarified(sizes, spacingPx);
+      case 'lanes':
+        return layoutLanes(loadedImages, sizes, spacingPx, fit);
       default:
         return { canvasWidth: 800, canvasHeight: 600, items: [] } as LayoutResult;
     }
@@ -789,6 +791,62 @@ function layoutMasonry(
   }
   const canvasWidth = colWidths.reduce((a, b) => a + b, 0) + 2 * spacing;
   const canvasHeight = Math.max(...colHeights) + 2 * spacing;
+  return { canvasWidth, canvasHeight, items };
+}
+
+// Horizontal masonry: assigns images to the shortest row (lane)
+function layoutLanes(
+  loadedImgs: HTMLImageElement[],
+  sizes: { w: number, h: number }[],
+  spacing: number = 0,
+  fit: boolean = false
+): LayoutResult {
+  const n = loadedImgs.length;
+  if (n === 0) return { canvasWidth: 0, canvasHeight: 0, items: [] };
+
+  const rows = Math.max(1, Math.ceil(Math.sqrt(n)));
+  const assignments: { i: number; row: number }[] = [];
+  const rowHeights = Array(rows).fill(0);
+  const rowWidths = Array(rows).fill(0);
+
+  // First pass: assign items to rows with least current width; track row max heights
+  for (let i = 0; i < n; i++) {
+    let targetRow = 0;
+    for (let r = 1; r < rows; r++) {
+      if (rowWidths[r] < rowWidths[targetRow]) targetRow = r;
+    }
+    assignments.push({ i, row: targetRow });
+    const heightCandidate = sizes[i].h;
+    rowHeights[targetRow] = Math.max(rowHeights[targetRow], heightCandidate);
+    // optimistic width tracking for tie-breaking; precise widths handled in second pass
+    rowWidths[targetRow] += sizes[i].w + (rowWidths[targetRow] > 0 ? spacing : 0);
+  }
+
+  // Compute row Y offsets using finalized row heights
+  const rowOffsets: number[] = [];
+  let yCursor = spacing;
+  for (let r = 0; r < rows; r++) {
+    rowOffsets[r] = yCursor;
+    yCursor += rowHeights[r] + spacing;
+  }
+
+  // Second pass: place items with final row heights and recompute widths per lane
+  const laneWidths = Array(rows).fill(0);
+  const items: LayoutItem[] = Array(n);
+
+  for (const { i, row } of assignments) {
+    const aspect = loadedImgs[i].naturalWidth / loadedImgs[i].naturalHeight;
+    const h = fit ? rowHeights[row] : sizes[i].h;
+    const w = fit ? Math.round(h * aspect) : sizes[i].w;
+    const x = spacing + laneWidths[row];
+    const y = rowOffsets[row];
+    items[i] = { x, y, w, h, imageIndex: i };
+    laneWidths[row] += w + spacing;
+  }
+
+  const canvasWidth = Math.max(...laneWidths, 0) + spacing;
+  const canvasHeight = yCursor;
+
   return { canvasWidth, canvasHeight, items };
 }
 

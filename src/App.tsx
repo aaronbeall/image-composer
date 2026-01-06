@@ -225,7 +225,7 @@ export default function App() {
   const visibleImages = useMemo(() => images.filter(img => !img.hidden), [images]);
 
   // Determine which layouts support the Fit option
-  const supportsFit = ['grid', 'masonry', 'single-row', 'single-column', 'squarified'].includes(layout);
+  const supportsFit = ['grid', 'masonry', 'lanes', 'single-row', 'single-column', 'squarified'].includes(layout);
 
   return (
     <div className="w-full min-h-screen bg-neutral-900 text-white flex flex-col">
@@ -1246,6 +1246,33 @@ function LayoutTypeSelector({ layout, setLayout }: LayoutTypeSelectorProps) {
       ),
     },
     {
+      key: 'masonry',
+      label: 'Masonry',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <rect x="2" y="2" width="4" height="7" rx="1" fill="currentColor" />
+          <rect x="2" y="10" width="4" height="6" rx="1" fill="currentColor" />
+          <rect x="8" y="2" width="4" height="4" rx="1" fill="currentColor" />
+          <rect x="8" y="8" width="4" height="8" rx="1" fill="currentColor" />
+          <rect x="14" y="2" width="4" height="12" rx="1" fill="currentColor" />
+        </svg>
+      ),
+    },
+    {
+      key: 'lanes',
+      label: 'Lanes',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="3" width="8" height="3" rx="0.8" fill="currentColor" />
+          <rect x="11" y="3" width="6" height="3" rx="0.8" fill="currentColor" />
+          <rect x="2" y="9" width="7" height="3" rx="0.8" fill="currentColor" />
+          <rect x="10" y="9" width="8" height="3" rx="0.8" fill="currentColor" />
+          <rect x="2" y="15" width="6" height="3" rx="0.8" fill="currentColor" />
+          <rect x="9" y="15" width="7" height="3" rx="0.8" fill="currentColor" />
+        </svg>
+      ),
+    },
+    {
       key: 'cluster',
       label: 'Cluster',
       icon: (
@@ -1257,19 +1284,6 @@ function LayoutTypeSelector({ layout, setLayout }: LayoutTypeSelectorProps) {
           <rect x="14" y="8" width="3" height="3" rx="0.7" fill="currentColor" />
           <rect x="4" y="14" width="3" height="3" rx="0.7" fill="currentColor" />
           <rect x="13" y="14" width="3" height="3" rx="0.7" fill="currentColor" />
-        </svg>
-      ),
-    },
-    {
-      key: 'masonry',
-      label: 'Masonry',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="2" y="2" width="4" height="7" rx="1" fill="currentColor" />
-          <rect x="2" y="10" width="4" height="6" rx="1" fill="currentColor" />
-          <rect x="8" y="2" width="4" height="4" rx="1" fill="currentColor" />
-          <rect x="8" y="8" width="4" height="8" rx="1" fill="currentColor" />
-          <rect x="14" y="2" width="4" height="12" rx="1" fill="currentColor" />
         </svg>
       ),
     },
