@@ -42,6 +42,7 @@ const LAYOUTS = [
     label: 'Grid',
     fit: true,
     justify: true,
+    shape: 'rect' as const,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         {[0, 1, 2].map(r => [0, 1, 2].map(c => (
@@ -55,6 +56,7 @@ const LAYOUTS = [
     label: 'Packed',
     fit: true,
     justify: true,
+    shape: 'rect' as const,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor" />
@@ -72,6 +74,7 @@ const LAYOUTS = [
     label: 'Squarified',
     fit: true,
     justify: false,
+    shape: 'rect' as const,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor" />
@@ -86,6 +89,7 @@ const LAYOUTS = [
     label: 'Masonry',
     fit: true,
     justify: true,
+    shape: 'rect' as const,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <rect x="2" y="2" width="4" height="7" rx="1" fill="currentColor" />
@@ -101,6 +105,7 @@ const LAYOUTS = [
     label: 'Lanes',
     fit: true,
     justify: true,
+    shape: 'rect' as const,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="2" y="3" width="8" height="3" rx="0.8" fill="currentColor" />
@@ -117,6 +122,7 @@ const LAYOUTS = [
     label: 'Cluster',
     fit: false,
     justify: false,
+    shape: 'rect' as const,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <rect x="7" y="7" width="6" height="6" rx="1" fill="currentColor" />
@@ -130,10 +136,26 @@ const LAYOUTS = [
     ),
   },
   {
+    key: 'bubble',
+    label: 'Bubbles',
+    fit: false,
+    justify: false,
+    shape: 'circle' as const,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="6" cy="7" r="3" fill="currentColor" />
+        <circle cx="13" cy="5" r="2" fill="currentColor" />
+        <circle cx="14" cy="12" r="4" fill="currentColor" />
+        <circle cx="7" cy="14" r="2" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
     key: 'single-column',
     label: 'Column',
     fit: true,
     justify: false,
+    shape: 'rect' as const,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="7" y="3" width="6" height="4" rx="1" fill="currentColor" />
@@ -147,6 +169,7 @@ const LAYOUTS = [
     label: 'Row',
     fit: true,
     justify: false,
+    shape: 'rect' as const,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="3" y="7" width="4" height="6" rx="1" fill="currentColor" />
@@ -155,7 +178,14 @@ const LAYOUTS = [
       </svg>
     ),
   },
-] as const satisfies { key: LayoutType; label: string; icon: React.ReactNode; fit: boolean; justify: boolean }[];
+] as const satisfies { 
+  key: LayoutType;
+  label: string;
+  icon: React.ReactNode;
+  fit: boolean;
+  justify: boolean; 
+  shape: 'rect' | 'circle';
+}[];
 
 const LAYOUT_KEYS: LayoutType[] = LAYOUTS.map(l => l.key);
 
@@ -371,6 +401,7 @@ export default function App() {
   const selectedLayout = useMemo(() => LAYOUTS.find(l => l.key === layout), [layout]);
   const supportsFit = !!selectedLayout?.fit;
   const supportsJustify = !!selectedLayout?.justify;
+  const shape = selectedLayout?.shape ?? 'rect';
 
   const randomPick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
   const randomBool = (probability = 0.5) => Math.random() < probability;
@@ -809,19 +840,21 @@ export default function App() {
                 </div>
 
                 {/* Corner radius selector (0-100%) - slider style */}
-                <div className="flex flex-col gap-1">
-                  <label className="font-medium text-xs flex items-center justify-between">
-                    <span>Corner Radius</span>
-                    <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
-                  </label>
-                  <Slider
-                    value={[cornerRadius]}
-                    min={0}
-                    max={100}
-                    onValueChange={val => setCornerRadius(val[0])}
-                    className="w-full"
-                  />
-                </div>
+                {shape === 'rect' && (
+                  <div className="flex flex-col gap-1">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Corner Radius</span>
+                      <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
+                    </label>
+                    <Slider
+                      value={[cornerRadius]}
+                      min={0}
+                      max={100}
+                      onValueChange={val => setCornerRadius(val[0])}
+                      className="w-full"
+                    />
+                  </div>
+                )}
 
                 {/* Border selector */}
                 <ToggleSection label="Border" enabled={borderEnabled} onToggle={setBorderEnabled}>
@@ -1041,6 +1074,7 @@ export default function App() {
                   shadowDistance={shadowDistance}
                   shadowBlur={shadowBlur}
                   shadowColor={addAlphaToHex(shadowColor, shadowOpacity)}
+                  shape={shape}
                   effects={effects}
                   onUpdate={setCanvasInfo}
                 />
@@ -1249,19 +1283,21 @@ export default function App() {
                     <BackgroundColorSelector bgColor={bgColor} setBgColor={setBgColor} />
                   </div>
                   {/* Corner radius selector (0-100%) - slider style */}
-                  <div className="flex flex-col gap-1 mt-4">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Corner Radius</span>
-                      <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
-                    </label>
-                    <Slider
-                      value={[cornerRadius]}
-                      min={0}
-                      max={100}
-                      onValueChange={val => setCornerRadius(val[0])}
-                      className="w-full"
-                    />
-                  </div>
+                  {shape === 'rect' && (
+                    <div className="flex flex-col gap-1 mt-4">
+                      <label className="font-medium text-xs flex items-center justify-between">
+                        <span>Corner Radius</span>
+                        <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
+                      </label>
+                      <Slider
+                        value={[cornerRadius]}
+                        min={0}
+                        max={100}
+                        onValueChange={val => setCornerRadius(val[0])}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
                   {/* Border selector */}
                   <div className="mt-4">
                     <ToggleSection label="Border" enabled={borderEnabled} onToggle={setBorderEnabled}>

@@ -3,7 +3,7 @@ import type { Effect } from './App';
 
 import { hashString, mulberry32 } from '@/lib/utils';
 
-export type LayoutType = 'grid' | 'packed' | 'masonry' | 'lanes' | 'single-column' | 'single-row' | 'cluster' | 'squarified';
+export type LayoutType = 'grid' | 'packed' | 'masonry' | 'lanes' | 'single-column' | 'single-row' | 'cluster' | 'squarified' | 'bubble';
 
 export interface ComposeImageItem {
   id: string;
@@ -38,6 +38,7 @@ export interface StyleOptions {
   shadowBlur?: number;
   shadowColor?: string;
   effects?: Effect[];
+  shape?: 'rect' | 'circle';
 }
 
 interface ImageComposerProps extends LayoutOptions, StyleOptions {
@@ -48,7 +49,7 @@ interface ImageComposerProps extends LayoutOptions, StyleOptions {
   style?: React.CSSProperties;
 }
 
-type DrawingOptions = StyleOptions & LayoutOptions & { fit: boolean };
+type DrawingOptions = StyleOptions & LayoutOptions;
 
 // Utility to load a single image (used with caching below)
 function loadImage(src: string) {
@@ -89,7 +90,7 @@ interface LayoutResult {
   items: LayoutItem[];
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, jitterPosition = 0, jitterSize = 0, jitterRotation = 0, justify = false, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', effects = [], style, onUpdate }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, jitterPosition = 0, jitterSize = 0, jitterRotation = 0, justify = false, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', effects = [], shape = 'rect', style, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [loadedImages, setLoadedImages] = useState<HTMLImageElement[] | null>(null);
@@ -173,6 +174,8 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
         return layoutSquarified(sizes, spacingPx);
       case 'lanes':
         return layoutLanes(loadedImages, sizes, spacingPx, fit, justify);
+      case 'bubble':
+        return layoutBubble(loadedImages, sizes, spacingPx);
       default:
         return { canvasWidth: 800, canvasHeight: 600, items: [] } as LayoutResult;
     }
@@ -202,6 +205,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       jitterPosition,
       jitterSize,
       jitterRotation,
+      shape,
     });
 
     onUpdate({
@@ -210,7 +214,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       getImageData: () => canvas.toDataURL('image/png'),
       getImageBlob: () => new Promise(resolve => canvas.toBlob(resolve, 'image/png')),
     });
-  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor, effects, jitterPosition, jitterSize, jitterRotation, onUpdate]);
+  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor, effects, jitterPosition, jitterSize, jitterRotation, shape, onUpdate]);
 
   return (
     <canvas
@@ -251,6 +255,7 @@ function drawComposition(
     jitterPosition = 0,
     jitterSize = 0,
     jitterRotation = 0,
+    shape = 'rect',
   }: DrawingOptions
 ) {
   // Set canvas size
@@ -263,7 +268,20 @@ function drawComposition(
     ctx.save();
     ctx.globalAlpha = 1;
     ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    if (shape === 'circle') {
+      // For circular shapes, fill a large circle
+      const centerX = layout.canvasWidth / 2;
+      const centerY = layout.canvasHeight / 2;
+      const radius = Math.min(layout.canvasWidth, layout.canvasHeight) / 2;
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // For rectangular shapes, fill the entire canvas
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+
     ctx.restore();
   }
 
@@ -327,6 +345,7 @@ function drawComposition(
       dropShadow,
       effects,
       rotationRad,
+      shape,
     });
   }
 }
@@ -338,8 +357,16 @@ function drawShapePath(
   y: number,
   w: number,
   h: number,
-  cornerRadiusPx: number
+  cornerRadiusPx: number,
+  shape: 'rect' | 'circle' = 'rect'
 ) {
+  if (shape === 'circle') {
+    const r = Math.min(w, h) / 2;
+    ctx.arc(x + w / 2, y + h / 2, r, 0, Math.PI * 2);
+    ctx.closePath();
+    return;
+  }
+
   if (cornerRadiusPx > 0) {
     const maxRadius = Math.min(w, h) / 2;
     const radiusPx = Math.min(cornerRadiusPx, maxRadius);
@@ -467,13 +494,15 @@ function drawImage(
     dropShadow,
     effects = [],
     rotationRad = 0,
+    shape = 'rect',
   }: {
-    fit: boolean;
+    fit?: boolean;
     cornerRadiusTargetPx?: number;
     border?: { color: string; width: number };
     dropShadow?: { color: string; offsetX: number; offsetY: number; blur: number };
     effects?: Effect[];
     rotationRad?: number;
+    shape?: 'rect' | 'circle';
   }
 ) {
   const { x, y, w, h } = item;
@@ -530,7 +559,7 @@ function drawImage(
     ctx.shadowOffsetY = dropShadow.offsetY;
 
     ctx.beginPath();
-    drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, maxRadiusPx);
+    drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, maxRadiusPx, shape);
     ctx.fillStyle = 'black';
     ctx.fill();
     ctx.restore();
@@ -583,7 +612,7 @@ function drawImage(
   }
 
   ctx.beginPath();
-  drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, maxRadiusPx);
+  drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, maxRadiusPx, shape);
   ctx.clip();
   ctx.drawImage(img, sx, sy, sw, sh, drawX, drawY, drawWidth, drawHeight);
 
@@ -621,7 +650,7 @@ function drawImage(
     ctx.lineWidth = border.width;
 
     ctx.beginPath();
-    drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, maxRadiusPx);
+    drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, maxRadiusPx, shape);
     ctx.stroke();
     ctx.restore();
   }
@@ -996,6 +1025,98 @@ function layoutLanes(
   const canvasHeight = Math.max(yCursorJustified, baseCanvasHeight);
 
   return { canvasWidth, canvasHeight, items: justifiedItems };
+}
+
+// Bubble layout: squarify images, seed in a circle, then relax with separation + gentle clustering
+function layoutBubble(
+  _loadedImgs: HTMLImageElement[],
+  sizes: { w: number, h: number }[],
+  spacing: number = 0
+): LayoutResult {
+  const n = sizes.length;
+  if (n === 0) return { canvasWidth: 0, canvasHeight: 0, items: [] };
+
+  const bubbles = sizes.map((s, i) => {
+    const side = Math.min(s.w, s.h);
+    return { i, side, r: side / 2, x: 0, y: 0 };
+  }).sort((a, b) => b.side - a.side);
+
+  // Initial circular placement (slightly staggered radius to reduce perfect overlap)
+  const angleStep = (Math.PI * 2) / n;
+  const baseRadius = bubbles[0].r + spacing;
+  bubbles.forEach((b, idx) => {
+    const theta = idx * angleStep;
+    const jitter = 1 + (idx % 3) * 0.05;
+    const radius = baseRadius * jitter + idx * 0.15 * spacing;
+    b.x = Math.cos(theta) * radius;
+    b.y = Math.sin(theta) * radius;
+  });
+
+  // Relax positions: repel overlaps, gently pull toward center to keep a cluster
+  const iterations = 220;
+  const pad = spacing; // treat spacing as desired padding between circles
+  for (let iter = 0; iter < iterations; iter++) {
+    // Pairwise separation
+    for (let a = 0; a < n; a++) {
+      for (let bIdx = a + 1; bIdx < n; bIdx++) {
+        const A = bubbles[a];
+        const B = bubbles[bIdx];
+        let dx = B.x - A.x;
+        let dy = B.y - A.y;
+        let dist = Math.hypot(dx, dy);
+        const minDist = A.r + B.r + pad;
+        if (dist === 0) {
+          dx = 0.01;
+          dy = 0;
+          dist = 0.01;
+        }
+        if (dist < minDist) {
+          const overlap = minDist - dist;
+          const push = overlap / dist * 0.5;
+          const ox = dx * push;
+          const oy = dy * push;
+          A.x -= ox;
+          A.y -= oy;
+          B.x += ox;
+          B.y += oy;
+        }
+      }
+    }
+
+    // Gentle attraction toward origin to keep cluster tight
+    const pull = 0.02;
+    for (const b of bubbles) {
+      b.x *= (1 - pull);
+      b.y *= (1 - pull);
+    }
+  }
+
+  // Compute bounds and shift to positive space with padding
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const b of bubbles) {
+    minX = Math.min(minX, b.x - b.r);
+    minY = Math.min(minY, b.y - b.r);
+    maxX = Math.max(maxX, b.x + b.r);
+    maxY = Math.max(maxY, b.y + b.r);
+  }
+
+  const offsetX = -minX + spacing;
+  const offsetY = -minY + spacing;
+  const canvasWidth = (maxX - minX) + spacing * 2;
+  const canvasHeight = (maxY - minY) + spacing * 2;
+
+  const items: LayoutItem[] = bubbles.map(b => ({
+    x: b.x - b.r + offsetX,
+    y: b.y - b.r + offsetY,
+    w: b.side,
+    h: b.side,
+    imageIndex: b.i,
+  }));
+
+  // Restore original order to preserve image sequence
+  items.sort((a, b) => a.imageIndex - b.imageIndex);
+
+  return { canvasWidth, canvasHeight, items };
 }
 
 // Maximal rectangles bin-packing: place images in any available gap, splitting gaps as needed
