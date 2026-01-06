@@ -267,8 +267,10 @@ function drawComposition(
     ctx.restore();
   }
 
-  const minItemSize = layout.items.length ? Math.min(...layout.items.map(i => Math.min(i.w, i.h))) : 0;
-  const cornerRadiusPx = cornerRadius > 0 && minItemSize > 0 ? (cornerRadius / 100) * (minItemSize / 2) : 0;
+  // cornerRadius is a percentage where 100% equals the largest possible rounding across all images (half the largest min dimension).
+  // We compute that target once, then clamp per-image so smaller images stay within their own maximum.
+  const maxItemMinSize = layout.items.length ? Math.max(...layout.items.map(i => Math.min(i.w, i.h))) : 0;
+  const cornerRadiusTargetPx = cornerRadius > 0 && maxItemMinSize > 0 ? (cornerRadius / 100) * (maxItemMinSize / 2) : 0;
 
   const avgItemSize = layout.items.length ? (layout.items.reduce((sum, i) => sum + Math.min(i.w, i.h), 0) / layout.items.length) : 0;
 
@@ -320,7 +322,7 @@ function drawComposition(
 
     drawImage(ctx, { ...item, x, y, w, h }, images[item.imageIndex], loadedImgs[item.imageIndex], {
       fit,
-      cornerRadiusPx,
+      cornerRadiusTargetPx,
       border,
       dropShadow,
       effects,
@@ -460,14 +462,14 @@ function drawImage(
   img: HTMLImageElement,
   {
     fit,
-    cornerRadiusPx = 0,
+    cornerRadiusTargetPx = 0,
     border,
     dropShadow,
     effects = [],
     rotationRad = 0,
   }: {
     fit: boolean;
-    cornerRadiusPx?: number;
+    cornerRadiusTargetPx?: number;
     border?: { color: string; width: number };
     dropShadow?: { color: string; offsetX: number; offsetY: number; blur: number };
     effects?: Effect[];
@@ -518,6 +520,8 @@ function drawImage(
   if (rotationRad) ctx.rotate(rotationRad);
   ctx.translate(-centerX, -centerY);
 
+  const maxRadiusPx = cornerRadiusTargetPx > 0 ? Math.min(cornerRadiusTargetPx, Math.min(drawWidth, drawHeight) / 2) : 0;
+
   if (dropShadow) {
     ctx.save();
     ctx.shadowColor = dropShadow.color;
@@ -526,7 +530,7 @@ function drawImage(
     ctx.shadowOffsetY = dropShadow.offsetY;
 
     ctx.beginPath();
-    drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, cornerRadiusPx);
+    drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, maxRadiusPx);
     ctx.fillStyle = 'black';
     ctx.fill();
     ctx.restore();
@@ -579,7 +583,7 @@ function drawImage(
   }
 
   ctx.beginPath();
-  drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, cornerRadiusPx);
+  drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, maxRadiusPx);
   ctx.clip();
   ctx.drawImage(img, sx, sy, sw, sh, drawX, drawY, drawWidth, drawHeight);
 
@@ -617,7 +621,7 @@ function drawImage(
     ctx.lineWidth = border.width;
 
     ctx.beginPath();
-    drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, cornerRadiusPx);
+    drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, maxRadiusPx);
     ctx.stroke();
     ctx.restore();
   }
