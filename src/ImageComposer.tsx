@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { StyleOptions } from './lib/draw';
 import { layoutComposition, type ComposeImageItem, type LayoutOptions, type LayoutType } from './lib/layout';
