@@ -19,12 +19,14 @@ export interface LayoutOptions {
 export interface StyleOptions {
   backgroundColor?: string;
   cornerRadius?: number;
+  borderEnabled?: boolean;
   borderWidth?: number;
   borderColor?: string;
-  shadowColor?: string;
-  shadowOffsetX?: number;
-  shadowOffsetY?: number;
+  shadowEnabled?: boolean;
+  shadowAngle?: number;
+  shadowDistance?: number;
   shadowBlur?: number;
+  shadowColor?: string;
 }
 
 interface ImageComposerProps extends LayoutOptions, StyleOptions {
@@ -74,7 +76,7 @@ interface LayoutResult {
   items: LayoutItem[];
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, backgroundColor = 'transparent', cornerRadius = 0, borderWidth = 0, borderColor = '#ffffff', style, onUpdate }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', style, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [loadedImages, setLoadedImages] = useState<HTMLImageElement[] | null>(null);
@@ -169,7 +171,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawComposition(ctx, layoutResult, images, loadedImages, fit, backgroundColor, cornerRadius, borderWidth, borderColor);
+    drawComposition(ctx, layoutResult, images, loadedImages, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor);
 
     onUpdate({
       width: canvas.width,
@@ -177,7 +179,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       getImageData: () => canvas.toDataURL('image/png'),
       getImageBlob: () => new Promise(resolve => canvas.toBlob(resolve, 'image/png')),
     });
-  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, borderWidth, borderColor, onUpdate]);
+  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor, onUpdate]);
 
   return (
     <canvas
@@ -205,8 +207,14 @@ function drawComposition(
   fit: boolean,
   backgroundColor: string,
   cornerRadius: number = 0,
+  borderEnabled: boolean = false,
   borderWidth: number = 0,
-  borderColor: string = '#ffffff'
+  borderColor: string = '#ffffff',
+  shadowEnabled: boolean = false,
+  shadowAngle: number = 0,
+  shadowDistance: number = 0,
+  shadowBlur: number = 0,
+  shadowColor: string = '#000000'
 ) {
   // Set canvas size
   ctx.canvas.width = layout.canvasWidth;
@@ -225,13 +233,61 @@ function drawComposition(
   const minItemSize = layout.items.length ? Math.min(...layout.items.map(i => Math.min(i.w, i.h))) : 0;
   const cornerRadiusPx = cornerRadius > 0 && minItemSize > 0 ? (cornerRadius / 100) * (minItemSize / 2) : 0;
 
-  // Calculate border width in pixels (0-20 scale relative to average image size)
   const avgItemSize = layout.items.length ? (layout.items.reduce((sum, i) => sum + Math.min(i.w, i.h), 0) / layout.items.length) : 0;
-  const borderWidthPx = borderWidth > 0 && avgItemSize > 0 ? (borderWidth / 100) * (avgItemSize * 0.1) : 0;
+
+  // Build style objects for drawing
+  const border = borderEnabled && borderWidth > 0 && avgItemSize > 0
+    ? {
+      color: borderColor,
+      width: (borderWidth / 100) * (avgItemSize * 0.1)
+    }
+    : undefined;
+
+  const dropShadow = shadowEnabled && (shadowDistance > 0 || shadowBlur > 0) && avgItemSize > 0
+    ? (() => {
+      const shadowDistancePx = (shadowDistance / 100) * (avgItemSize * 0.2);
+      const shadowBlurPx = (shadowBlur / 100) * (avgItemSize * 0.2);
+      const angleRad = (shadowAngle * Math.PI) / 180;
+      return {
+        color: shadowColor,
+        offsetX: shadowDistancePx * Math.cos(angleRad),
+        offsetY: shadowDistancePx * Math.sin(angleRad),
+        blur: shadowBlurPx
+      };
+    })()
+    : undefined;
 
   // Draw each image
   for (const item of layout.items) {
-    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadiusPx, borderWidthPx, borderColor);
+    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadiusPx, border, dropShadow);
+  }
+}
+
+// Helper to draw shape path (rounded rectangle or simple rectangle)
+function drawShapePath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  cornerRadiusPx: number
+) {
+  if (cornerRadiusPx > 0) {
+    const maxRadius = Math.min(w, h) / 2;
+    const radiusPx = Math.min(cornerRadiusPx, maxRadius);
+
+    ctx.moveTo(x + radiusPx, y);
+    ctx.lineTo(x + w - radiusPx, y);
+    ctx.arcTo(x + w, y, x + w, y + radiusPx, radiusPx);
+    ctx.lineTo(x + w, y + h - radiusPx);
+    ctx.arcTo(x + w, y + h, x + w - radiusPx, y + h, radiusPx);
+    ctx.lineTo(x + radiusPx, y + h);
+    ctx.arcTo(x, y + h, x, y + h - radiusPx, radiusPx);
+    ctx.lineTo(x, y + radiusPx);
+    ctx.arcTo(x, y, x + radiusPx, y, radiusPx);
+    ctx.closePath();
+  } else {
+    ctx.rect(x, y, w, h);
   }
 }
 
@@ -242,8 +298,8 @@ function drawImage(
   img: HTMLImageElement,
   fit: boolean,
   cornerRadiusPx: number = 0,
-  borderWidthPx: number = 0,
-  borderColor: string = '#ffffff'
+  border?: { color: string, width: number },
+  dropShadow?: { color: string, offsetX: number, offsetY: number, blur: number }
 ) {
   const { x, y, w, h } = item;
 
@@ -266,59 +322,42 @@ function drawImage(
     dy = y + (h - dh) / 2;
   }
 
-  // Clip and draw
-  ctx.save();
-  ctx.beginPath();
+  // Draw shadow first if needed (before clipping)
+  if (dropShadow) {
+    ctx.save();
+    ctx.shadowColor = dropShadow.color;
+    ctx.shadowBlur = dropShadow.blur;
+    ctx.shadowOffsetX = dropShadow.offsetX;
+    ctx.shadowOffsetY = dropShadow.offsetY;
 
-  if (cornerRadiusPx > 0) {
-    const maxRadius = Math.min(w, h) / 2;
-    const radiusPx = Math.min(cornerRadiusPx, maxRadius);
-
-    // Draw rounded rectangle path
-    ctx.moveTo(x + radiusPx, y);
-    ctx.lineTo(x + w - radiusPx, y);
-    ctx.arcTo(x + w, y, x + w, y + radiusPx, radiusPx);
-    ctx.lineTo(x + w, y + h - radiusPx);
-    ctx.arcTo(x + w, y + h, x + w - radiusPx, y + h, radiusPx);
-    ctx.lineTo(x + radiusPx, y + h);
-    ctx.arcTo(x, y + h, x, y + h - radiusPx, radiusPx);
-    ctx.lineTo(x, y + radiusPx);
-    ctx.arcTo(x, y, x + radiusPx, y, radiusPx);
-    ctx.closePath();
-  } else {
-    // Simple rectangular clip
-    ctx.rect(x, y, w, h);
+    ctx.beginPath();
+    drawShapePath(ctx, x, y, w, h, cornerRadiusPx);
+    ctx.fillStyle = 'black'; // Color doesn't matter, shadow will show
+    ctx.fill();
+    ctx.restore();
   }
 
+  // Clip and draw image
+  ctx.save();
+  ctx.beginPath();
+  drawShapePath(ctx, x, y, w, h, cornerRadiusPx);
   ctx.clip();
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
   ctx.restore();
 
   // Draw border if needed
-  if (borderWidthPx > 0) {
+  if (border && border.width > 0) {
     ctx.save();
-    ctx.strokeStyle = borderColor;
-    ctx.lineWidth = borderWidthPx;
+    ctx.strokeStyle = border.color;
+    ctx.lineWidth = border.width;
 
     if (cornerRadiusPx > 0) {
-      const maxRadius = Math.min(w, h) / 2;
-      const radiusPx = Math.min(cornerRadiusPx, maxRadius);
-
       ctx.beginPath();
-      ctx.moveTo(x + radiusPx, y);
-      ctx.lineTo(x + w - radiusPx, y);
-      ctx.arcTo(x + w, y, x + w, y + radiusPx, radiusPx);
-      ctx.lineTo(x + w, y + h - radiusPx);
-      ctx.arcTo(x + w, y + h, x + w - radiusPx, y + h, radiusPx);
-      ctx.lineTo(x + radiusPx, y + h);
-      ctx.arcTo(x, y + h, x, y + h - radiusPx, radiusPx);
-      ctx.lineTo(x, y + radiusPx);
-      ctx.arcTo(x, y, x + radiusPx, y, radiusPx);
-      ctx.closePath();
+      drawShapePath(ctx, x, y, w, h, cornerRadiusPx);
       ctx.stroke();
     } else {
-      // Simple rectangular border
-      ctx.strokeRect(x + borderWidthPx / 2, y + borderWidthPx / 2, w - borderWidthPx, h - borderWidthPx);
+      // Simple rectangular border with offset for stroke width
+      ctx.strokeRect(x + border.width / 2, y + border.width / 2, w - border.width, h - border.width);
     }
     ctx.restore();
   }

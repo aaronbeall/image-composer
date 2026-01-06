@@ -4,7 +4,7 @@ import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
+import { addAlphaToHex, cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Download, Eye, EyeOff, ImagePlus, LayoutGrid, Menu, Paintbrush, Share2, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImageComposer, type LayoutType } from './ImageComposer';
@@ -31,6 +31,11 @@ export default function App() {
   const [borderWidth, setBorderWidth] = useState(20);
   const [borderColor, setBorderColor] = useState('#ffffff');
   const [shadowEnabled, setShadowEnabled] = useState(false);
+  const [shadowAngle, setShadowAngle] = useState(45);
+  const [shadowDistance, setShadowDistance] = useState(5);
+  const [shadowBlur, setShadowBlur] = useState(15);
+  const [shadowColor, setShadowColor] = useState('#000000');
+  const [shadowOpacity, setShadowOpacity] = useState(65);
   const [cornerRadius, setCornerRadius] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('images');
@@ -484,9 +489,40 @@ export default function App() {
                   </div>
                 </ToggleSection>
 
-                {/* Drop shadow selector (stub) */}
+                {/* Drop shadow selector */}
                 <ToggleSection label="Drop Shadow" enabled={shadowEnabled} onToggle={setShadowEnabled}>
-                  <div className="text-xs text-neutral-500">Drop shadow controls coming soon...</div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Angle</span>
+                      <span className="text-neutral-400 text-xs">{shadowAngle}°</span>
+                    </label>
+                    <Slider value={[shadowAngle]} min={0} max={360} onValueChange={val => setShadowAngle(val[0])} className="w-full" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Distance</span>
+                      <span className="text-neutral-400 text-xs">{shadowDistance}</span>
+                    </label>
+                    <Slider value={[shadowDistance]} min={0} max={100} onValueChange={val => setShadowDistance(val[0])} className="w-full" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Blur</span>
+                      <span className="text-neutral-400 text-xs">{shadowBlur}</span>
+                    </label>
+                    <Slider value={[shadowBlur]} min={0} max={100} onValueChange={val => setShadowBlur(val[0])} className="w-full" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium">Color</label>
+                    <ColorSwatch value={shadowColor} onChange={setShadowColor} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Opacity</span>
+                      <span className="text-neutral-400 text-xs">{shadowOpacity}%</span>
+                    </label>
+                    <Slider value={[shadowOpacity]} min={0} max={100} onValueChange={val => setShadowOpacity(val[0])} className="w-full" />
+                  </div>
                 </ToggleSection>
               </div>
             )}
@@ -536,8 +572,14 @@ export default function App() {
                   scale={scale / 100}
                   backgroundColor={bgColor}
                   cornerRadius={cornerRadius}
-                  borderWidth={borderEnabled ? borderWidth : 0}
+                  borderEnabled={borderEnabled}
+                  borderWidth={borderWidth}
                   borderColor={borderColor}
+                  shadowEnabled={shadowEnabled}
+                  shadowAngle={shadowAngle}
+                  shadowDistance={shadowDistance}
+                  shadowBlur={shadowBlur}
+                  shadowColor={addAlphaToHex(shadowColor, shadowOpacity)}
                   onUpdate={setCanvasInfo}
                 />
               </div>
@@ -698,20 +740,40 @@ export default function App() {
                       </div>
                     </ToggleSection>
                   </div>
-                  {/* Drop shadow selector (stub) */}
+                  {/* Drop shadow selector */}
                   <div className="mt-4">
                     <ToggleSection label="Drop Shadow" enabled={shadowEnabled} onToggle={setShadowEnabled}>
-                      <div className="flex flex-row flex-wrap gap-2 items-center">
-                        <span className="text-xs">Color</span>
-                        <input type="color" className="w-6 h-6 p-0 border-none bg-transparent" />
-                        <span className="text-xs">Opacity</span>
-                        <Slider defaultValue={[50]} min={0} max={100} className="w-16" />
-                        <span className="text-xs">Angle</span>
-                        <Slider defaultValue={[0]} min={0} max={360} className="w-16" />
-                        <span className="text-xs">Distance</span>
-                        <Slider defaultValue={[0]} min={0} max={40} className="w-16" />
-                        <span className="text-xs">Blur</span>
-                        <Slider defaultValue={[0]} min={0} max={40} className="w-16" />
+                      <div className="flex flex-col gap-1">
+                        <label className="font-medium text-xs flex items-center justify-between">
+                          <span>Angle</span>
+                          <span className="text-neutral-400 text-xs">{shadowAngle}°</span>
+                        </label>
+                        <Slider value={[shadowAngle]} min={0} max={360} onValueChange={val => setShadowAngle(val[0])} className="w-full" />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="font-medium text-xs flex items-center justify-between">
+                          <span>Distance</span>
+                          <span className="text-neutral-400 text-xs">{shadowDistance}</span>
+                        </label>
+                        <Slider value={[shadowDistance]} min={0} max={100} onValueChange={val => setShadowDistance(val[0])} className="w-full" />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="font-medium text-xs flex items-center justify-between">
+                          <span>Blur</span>
+                          <span className="text-neutral-400 text-xs">{shadowBlur}</span>
+                        </label>
+                        <Slider value={[shadowBlur]} min={0} max={100} onValueChange={val => setShadowBlur(val[0])} className="w-full" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium">Color</label>
+                        <ColorSwatch value={shadowColor} onChange={setShadowColor} />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="font-medium text-xs flex items-center justify-between">
+                          <span>Opacity</span>
+                          <span className="text-neutral-400 text-xs">{shadowOpacity}%</span>
+                        </label>
+                        <Slider value={[shadowOpacity]} min={0} max={100} onValueChange={val => setShadowOpacity(val[0])} className="w-full" />
                       </div>
                     </ToggleSection>
                   </div>
