@@ -21,6 +21,126 @@ const SIDEBAR_TABS = [
   { key: 'style', icon: <Paintbrush size={20} />, label: 'Style' },
 ];
 
+const BG_PRESETS = [
+  { name: 'White', value: '#ffffff' },
+  { name: 'Pearl', value: '#f1f5f9' },
+  { name: 'Sky', value: '#7dc8ff' },
+  { name: 'Teal', value: '#2dd4bf' },
+  { name: 'Emerald', value: '#34d399' },
+  { name: 'Lime', value: '#a3e635' },
+  { name: 'Amber', value: '#f59e0b' },
+  { name: 'Coral', value: '#ff7b72' },
+  { name: 'Rose', value: '#f472b6' },
+  { name: 'Violet', value: '#8b5cf6' },
+  { name: 'Charcoal', value: '#1f2937' },
+];
+const LAYOUTS = [
+  {
+    key: 'grid',
+    label: 'Grid',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        {[0, 1, 2].map(r => [0, 1, 2].map(c => (
+          <rect key={r + ',' + c} x={2 + c * 5.5} y={2 + r * 5.5} width="4" height="4" rx="1" fill="currentColor" />
+        )))}
+      </svg>
+    ),
+  },
+  {
+    key: 'packed',
+    label: 'Packed',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor" />
+        <rect x="9" y="2" width="4" height="4" rx="1" fill="currentColor" />
+        <rect x="14" y="2" width="3" height="7" rx="1" fill="currentColor" />
+        <rect x="2" y="9" width="4" height="4" rx="1" fill="currentColor" />
+        <rect x="7" y="8" width="7" height="6" rx="1" fill="currentColor" />
+        <rect x="2" y="15" width="5" height="3" rx="1" fill="currentColor" />
+        <rect x="9" y="15" width="8" height="3" rx="1" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    key: 'squarified',
+    label: 'Squarified',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor" />
+        <rect x="11" y="2" width="7" height="8" rx="1" fill="currentColor" />
+        <rect x="2" y="11" width="6" height="7" rx="1" fill="currentColor" />
+        <rect x="9" y="11" width="9" height="7" rx="1" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    key: 'masonry',
+    label: 'Masonry',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="2" y="2" width="4" height="7" rx="1" fill="currentColor" />
+        <rect x="2" y="10" width="4" height="6" rx="1" fill="currentColor" />
+        <rect x="8" y="2" width="4" height="4" rx="1" fill="currentColor" />
+        <rect x="8" y="8" width="4" height="8" rx="1" fill="currentColor" />
+        <rect x="14" y="2" width="4" height="12" rx="1" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    key: 'lanes',
+    label: 'Lanes',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="2" y="3" width="8" height="3" rx="0.8" fill="currentColor" />
+        <rect x="11" y="3" width="6" height="3" rx="0.8" fill="currentColor" />
+        <rect x="2" y="9" width="7" height="3" rx="0.8" fill="currentColor" />
+        <rect x="10" y="9" width="8" height="3" rx="0.8" fill="currentColor" />
+        <rect x="2" y="15" width="6" height="3" rx="0.8" fill="currentColor" />
+        <rect x="9" y="15" width="7" height="3" rx="0.8" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    key: 'cluster',
+    label: 'Cluster',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="7" y="7" width="6" height="6" rx="1" fill="currentColor" />
+        <rect x="4" y="3" width="3" height="3" rx="0.7" fill="currentColor" />
+        <rect x="13" y="3" width="3" height="3" rx="0.7" fill="currentColor" />
+        <rect x="3" y="8" width="3" height="3" rx="0.7" fill="currentColor" />
+        <rect x="14" y="8" width="3" height="3" rx="0.7" fill="currentColor" />
+        <rect x="4" y="14" width="3" height="3" rx="0.7" fill="currentColor" />
+        <rect x="13" y="14" width="3" height="3" rx="0.7" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    key: 'single-column',
+    label: 'Column',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="7" y="3" width="6" height="4" rx="1" fill="currentColor" />
+        <rect x="7" y="8" width="6" height="4" rx="1" fill="currentColor" />
+        <rect x="7" y="13" width="6" height="4" rx="1" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    key: 'single-row',
+    label: 'Row',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="7" width="4" height="6" rx="1" fill="currentColor" />
+        <rect x="8" y="7" width="4" height="6" rx="1" fill="currentColor" />
+        <rect x="13" y="7" width="4" height="6" rx="1" fill="currentColor" />
+      </svg>
+    ),
+  },
+] as const satisfies { key: LayoutType; label: string; icon: React.ReactNode }[];
+
+const LAYOUT_KEYS: LayoutType[] = LAYOUTS.map(l => l.key);
+
 // Effect configuration with metadata
 const BLEND_MODES = [
   'screen',
@@ -231,6 +351,69 @@ export default function App() {
   // Determine which layouts support the Fit option
   const supportsFit = ['grid', 'packed', 'masonry', 'lanes', 'single-row', 'single-column', 'squarified'].includes(layout);
   const supportsJustify = ['packed', 'masonry', 'lanes'].includes(layout);
+
+  const randomPick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+  const randomBool = (probability = 0.5) => Math.random() < probability;
+
+  const shuffleImages = () => {
+    setImages(prev => {
+      const shuffled = [...prev];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    });
+  };
+
+  const randomizeBorderColor = (bg: string) => {
+    const hex = bg.replace('#', '');
+    if (hex.length !== 6) return '#0f172a';
+    const r = parseInt(hex.slice(0, 2), 16) / 255;
+    const g = parseInt(hex.slice(2, 4), 16) / 255;
+    const b = parseInt(hex.slice(4, 6), 16) / 255;
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return luminance > 0.6 ? '#0f172a' : '#f8fafc';
+  };
+
+  const handleShuffleAll = () => {
+    if (images.length === 0) return;
+
+    shuffleImages();
+
+    setLayout(randomPick(LAYOUT_KEYS));
+    setNormalizeSize(randomBool(0.5));
+    setFit(true);
+    setJustify(true);
+
+    const enableJitter = randomBool(1 / 3);
+    setJitterEnabled(enableJitter);
+    if (enableJitter) {
+      setJitterPosition(Math.floor(Math.random() * 101));
+      setJitterSize(Math.floor(Math.random() * 101));
+      setJitterRotation(Math.floor(Math.random() * 46));
+    }
+
+    const bgChoice = randomPick(BG_PRESETS).value;
+    setBgColor(bgChoice);
+
+    const enableBorder = randomBool(0.5);
+    setBorderEnabled(enableBorder);
+    if (enableBorder) {
+      setBorderWidth(Math.floor(Math.random() * 61) + 4); // 4-64
+      setBorderColor(randomizeBorderColor(bgChoice));
+    }
+
+    const enableShadow = randomBool(0.5);
+    setShadowEnabled(enableShadow);
+    if (enableShadow) {
+      setShadowAngle(Math.floor(Math.random() * 361));
+      setShadowDistance(Math.floor(Math.random() * 31) + 4); // 4-34
+      setShadowBlur(Math.floor(Math.random() * 41) + 10); // 10-50
+      setShadowOpacity(Math.floor(Math.random() * 41) + 40); // 40-80
+      setShadowColor('#000000');
+    }
+  };
 
   return (
     <div className="w-full min-h-screen bg-neutral-900 text-white flex flex-col">
@@ -826,43 +1009,57 @@ export default function App() {
               </div>
               {/* Status bar below the image composer */}
               <div className="w-full flex items-center justify-center bg-neutral-950/95 border-t border-neutral-800 py-2 z-10 min-h-[36px] max-h-[36px]">
-                <div className="text-xs text-neutral-400 flex flex-row gap-4 items-center">
+                <div className="text-xs text-neutral-400 flex flex-row gap-3 items-center">
                   {canvasInfo.width > 0 && canvasInfo.height > 0 && (
                     <span>Image size: {canvasInfo.width} × {canvasInfo.height} px</span>
                   )}
-                  {/* Image count as a link to Images tab */}
-                  <button
-                    className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition px-1 py-0.5 rounded"
-                    style={{ fontSize: 'inherit' }}
-                    onClick={() => {
-                      setActiveTab('images');
-                      setSidebarOpen(true);
-                    }}
-                    title="Show images"
-                  >
-                    {visibleImages.length} image{visibleImages.length === 1 ? '' : 's'}
-                  </button>
-                  {/* Add more button */}
-                  <button
-                    className="text-xs bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-1 rounded shadow ml-1"
-                    style={{ fontSize: 'inherit' }}
-                    onClick={handleBrowse}
-                    title="Add more images"
-                  >
-                    add more
-                  </button>
-                  {/* Layout as a link button */}
-                  <button
-                    className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition px-1 py-0.5 rounded"
-                    style={{ fontSize: 'inherit' }}
-                    onClick={() => {
-                      setActiveTab('layout');
-                      setSidebarOpen(true);
-                    }}
-                    title="Show layout settings"
-                  >
-                    Layout: {layout}
-                  </button>
+                  <div className="inline-flex items-center gap-1">
+                    {/* Image count as a link to Images tab */}
+                    <button
+                      className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition px-1 py-0.5 rounded"
+                      style={{ fontSize: 'inherit' }}
+                      onClick={() => {
+                        setActiveTab('images');
+                        setSidebarOpen(true);
+                      }}
+                      title="Show images"
+                    >
+                      {visibleImages.length} image{visibleImages.length === 1 ? '' : 's'}
+                    </button>
+                    {/* Add more button */}
+                    <button
+                      className="inline-flex items-center justify-center bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-1 rounded shadow"
+                      style={{ fontSize: 'inherit' }}
+                      onClick={handleBrowse}
+                      title="Add more images"
+                      aria-label="Add more images"
+                    >
+                      <ImagePlus size={14} />
+                    </button>
+                  </div>
+                  <div className="inline-flex items-center gap-1">
+                    {/* Layout as a link button */}
+                    <button
+                      className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition px-1 py-0.5 rounded"
+                      style={{ fontSize: 'inherit' }}
+                      onClick={() => {
+                        setActiveTab('layout');
+                        setSidebarOpen(true);
+                      }}
+                      title="Show layout settings"
+                    >
+                      Layout: {layout}
+                    </button>
+                    {images.length > 0 && (
+                      <button
+                        onClick={handleShuffleAll}
+                        className="inline-flex items-center justify-center p-1.5 rounded bg-indigo-700 hover:bg-indigo-600 text-white shadow transition"
+                        title="Shuffle images and layout"
+                      >
+                        <Dices size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1340,113 +1537,9 @@ type LayoutTypeSelectorProps = {
   setLayout: (layout: LayoutType) => void;
 };
 function LayoutTypeSelector({ layout, setLayout }: LayoutTypeSelectorProps) {
-  const layouts = [
-    {
-      key: 'grid',
-      label: 'Grid',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          {[0, 1, 2].map(r => [0, 1, 2].map(c => (
-            <rect key={r + ',' + c} x={2 + c * 5.5} y={2 + r * 5.5} width="4" height="4" rx="1" fill="currentColor" />
-          )))}
-        </svg>
-      ),
-    },
-    {
-      key: 'packed',
-      label: 'Packed',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor" />
-          <rect x="9" y="2" width="4" height="4" rx="1" fill="currentColor" />
-          <rect x="14" y="2" width="3" height="7" rx="1" fill="currentColor" />
-          <rect x="2" y="9" width="4" height="4" rx="1" fill="currentColor" />
-          <rect x="7" y="8" width="7" height="6" rx="1" fill="currentColor" />
-          <rect x="2" y="15" width="5" height="3" rx="1" fill="currentColor" />
-          <rect x="9" y="15" width="8" height="3" rx="1" fill="currentColor" />
-        </svg>
-      ),
-    },
-    {
-      key: 'squarified',
-      label: 'Squarified',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor" />
-          <rect x="11" y="2" width="7" height="8" rx="1" fill="currentColor" />
-          <rect x="2" y="11" width="6" height="7" rx="1" fill="currentColor" />
-          <rect x="9" y="11" width="9" height="7" rx="1" fill="currentColor" />
-        </svg>
-      ),
-    },
-    {
-      key: 'masonry',
-      label: 'Masonry',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="2" y="2" width="4" height="7" rx="1" fill="currentColor" />
-          <rect x="2" y="10" width="4" height="6" rx="1" fill="currentColor" />
-          <rect x="8" y="2" width="4" height="4" rx="1" fill="currentColor" />
-          <rect x="8" y="8" width="4" height="8" rx="1" fill="currentColor" />
-          <rect x="14" y="2" width="4" height="12" rx="1" fill="currentColor" />
-        </svg>
-      ),
-    },
-    {
-      key: 'lanes',
-      label: 'Lanes',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="2" y="3" width="8" height="3" rx="0.8" fill="currentColor" />
-          <rect x="11" y="3" width="6" height="3" rx="0.8" fill="currentColor" />
-          <rect x="2" y="9" width="7" height="3" rx="0.8" fill="currentColor" />
-          <rect x="10" y="9" width="8" height="3" rx="0.8" fill="currentColor" />
-          <rect x="2" y="15" width="6" height="3" rx="0.8" fill="currentColor" />
-          <rect x="9" y="15" width="7" height="3" rx="0.8" fill="currentColor" />
-        </svg>
-      ),
-    },
-    {
-      key: 'cluster',
-      label: 'Cluster',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <rect x="7" y="7" width="6" height="6" rx="1" fill="currentColor" />
-          <rect x="4" y="3" width="3" height="3" rx="0.7" fill="currentColor" />
-          <rect x="13" y="3" width="3" height="3" rx="0.7" fill="currentColor" />
-          <rect x="3" y="8" width="3" height="3" rx="0.7" fill="currentColor" />
-          <rect x="14" y="8" width="3" height="3" rx="0.7" fill="currentColor" />
-          <rect x="4" y="14" width="3" height="3" rx="0.7" fill="currentColor" />
-          <rect x="13" y="14" width="3" height="3" rx="0.7" fill="currentColor" />
-        </svg>
-      ),
-    },
-    {
-      key: 'single-column',
-      label: 'Column',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="7" y="3" width="6" height="4" rx="1" fill="currentColor" />
-          <rect x="7" y="8" width="6" height="4" rx="1" fill="currentColor" />
-          <rect x="7" y="13" width="6" height="4" rx="1" fill="currentColor" />
-        </svg>
-      ),
-    },
-    {
-      key: 'single-row',
-      label: 'Row',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="3" y="7" width="4" height="6" rx="1" fill="currentColor" />
-          <rect x="8" y="7" width="4" height="6" rx="1" fill="currentColor" />
-          <rect x="13" y="7" width="4" height="6" rx="1" fill="currentColor" />
-        </svg>
-      ),
-    },
-  ] as const satisfies { key: LayoutType; label: string; icon: React.ReactNode }[];
   return (
     <div className="flex flex-row flex-wrap gap-2">
-      {layouts.map(l => (
+      {LAYOUTS.map(l => (
         <Button
           key={l.key}
           variant={layout === l.key ? 'secondary' : 'ghost'}
@@ -1471,18 +1564,6 @@ type BackgroundColorSelectorProps = {
   setBgColor: (color: string) => void;
 };
 function BackgroundColorSelector({ bgColor, setBgColor }: BackgroundColorSelectorProps) {
-  const presets = [
-    { name: 'White', value: '#ffffff' },
-    { name: 'Sky', value: '#7dc8ff' },
-    { name: 'Teal', value: '#2dd4bf' },
-    { name: 'Emerald', value: '#34d399' },
-    { name: 'Lime', value: '#a3e635' },
-    { name: 'Amber', value: '#f59e0b' },
-    { name: 'Coral', value: '#ff7b72' },
-    { name: 'Rose', value: '#f472b6' },
-    { name: 'Violet', value: '#8b5cf6' },
-    { name: 'Charcoal', value: '#1f2937' },
-  ];
   return (
     <div className="flex flex-row flex-wrap gap-2 items-center">
       {/* Transparent */}
@@ -1494,7 +1575,7 @@ function BackgroundColorSelector({ bgColor, setBgColor }: BackgroundColorSelecto
         <span className="absolute left-1 top-2 text-xs text-neutral-400 pointer-events-none">⌀</span>
       </button>
       {/* Presets */}
-      {presets.map(opt => (
+      {BG_PRESETS.map(opt => (
         <button
           key={opt.value}
           onClick={() => setBgColor(opt.value)}
@@ -1504,7 +1585,7 @@ function BackgroundColorSelector({ bgColor, setBgColor }: BackgroundColorSelecto
         />
       ))}
       {/* Custom color */}
-      <ColorSwatch value={bgColor} onChange={setBgColor} isTransparent={bgColor === 'transparent'} selected={bgColor !== 'transparent' && !presets.map(p => p.value).includes(bgColor)} />
+      <ColorSwatch value={bgColor} onChange={setBgColor} isTransparent={bgColor === 'transparent'} selected={bgColor !== 'transparent' && !BG_PRESETS.map(p => p.value).includes(bgColor)} />
     </div>
   );
 }
