@@ -1,9 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { Combobox } from '@/components/ui/combobox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
-import { Slider } from '@/components/ui/slider';
-import { Switch } from '@/components/ui/switch';
+import { ValueToggle } from './components/ValueToggle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { addAlphaToHex, cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Download, Eye, EyeOff, HelpCircle, ImagePlus, Mail, LayoutGrid, Paintbrush, Share2, Upload, X, AlertTriangle } from 'lucide-react';
@@ -12,8 +10,12 @@ import { SiPatreon, SiBuymeacoffee } from 'react-icons/si';
 import logoSvg from '@/assets/logo.svg';
 import { ImageComposer, type ComposeImageItem, type LayoutType } from './ImageComposer';
 import { ColorSwatch } from './components/ColorSwatch';
+import { ColorValue } from './components/ColorValue';
 import { ToggleSection } from './components/ToggleSection';
 import { PopoverTooltip } from './components/PopoverTooltip';
+import { ValueSlider } from './components/ValueSlider';
+import { EffectsList } from './components/EffectsList';
+import type { Effect } from '@/types';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -179,83 +181,16 @@ const LAYOUTS = [
       </svg>
     ),
   },
-] as const satisfies { 
+] as const satisfies {
   key: LayoutType;
   label: string;
   icon: React.ReactNode;
   fit: boolean;
-  justify: boolean; 
+  justify: boolean;
   shape: 'rect' | 'circle';
 }[];
 
 const LAYOUT_KEYS: LayoutType[] = LAYOUTS.map(l => l.key);
-
-// Effect configuration with metadata
-const BLEND_MODES = [
-  'screen',
-  'lighten',
-  'overlay',
-  'soft-light',
-  'hard-light',
-  'color-dodge',
-  'color-burn',
-  'multiply',
-] as const;
-
-const titleCaseBlend = (mode: string) => mode.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
-
-const EFFECT_CONFIG = {
-  blur: { label: 'Blur', default: 5, min: 0, max: 20, unit: 'px' },
-  brightness: { label: 'Brightness', default: 100, min: 0, max: 200, unit: '%' },
-  contrast: { label: 'Contrast', default: 100, min: 0, max: 200, unit: '%' },
-  grayscale: { label: 'Grayscale', default: 100, min: 0, max: 100, unit: '%' },
-  'hue-rotate': { label: 'Hue Rotate', default: 0, min: 0, max: 360, unit: '°' },
-  invert: { label: 'Invert', default: 100, min: 0, max: 100, unit: '%' },
-  saturate: { label: 'Saturate', default: 100, min: 0, max: 200, unit: '%' },
-  sepia: { label: 'Sepia', default: 100, min: 0, max: 100, unit: '%' },
-  grain: {
-    label: 'Grain',
-    default: 20,
-    min: 0,
-    max: 100,
-    unit: '%',
-    blendModes: BLEND_MODES,
-    defaultBlendMode: 'overlay' as const,
-  },
-  vignette: {
-    label: 'Vignette',
-    default: 30,
-    min: 0,
-    max: 100,
-    unit: '%',
-    blendModes: BLEND_MODES,
-    defaultBlendMode: 'overlay' as const,
-  },
-  sharpen: { label: 'Sharpen', default: 30, min: 0, max: 100, unit: '%' },
-  bloom: {
-    label: 'Bloom',
-    default: 40,
-    min: 0,
-    max: 100,
-    unit: '%',
-    blurDefault: 10,
-    blurMin: 0,
-    blurMax: 40,
-    blendModes: BLEND_MODES,
-    defaultBlendMode: 'overlay' as const,
-  },
-} as const;
-
-export type EffectType = keyof typeof EFFECT_CONFIG;
-export type BlendMode = (typeof BLEND_MODES)[number];
-
-export type Effect = {
-  id: string;
-  type: EffectType;
-  value: number;
-  blur?: number;
-  blendMode?: BlendMode;
-};
 
 export default function App() {
   // Style controls state (for stubs)
@@ -742,93 +677,24 @@ export default function App() {
                   <LayoutTypeSelector layout={layout} setLayout={setLayout} />
                 </div>
                 {/* Spacing slider */}
-                <div className="flex flex-col gap-1">
-                  <label className="font-medium text-xs flex items-center justify-between">
-                    <span>Spacing</span>
-                    <span className="text-neutral-400 text-xs">{spacing}</span>
-                  </label>
-                  <Slider
-                    value={[spacing]}
-                    min={0}
-                    max={100}
-                    onValueChange={val => setSpacing(val[0])}
-                    className="w-full"
-                  />
-                </div>
+                <ValueSlider label="Spacing" value={spacing} onChange={setSpacing} max={100} />
                 {/* Scale slider */}
-                <div className="flex flex-col gap-1">
-                  <label className="font-medium text-xs flex items-center justify-between">
-                    <span>Scale</span>
-                    <span className="text-neutral-400 text-xs">{scale}%</span>
-                  </label>
-                  <Slider
-                    value={[scale]}
-                    min={1}
-                    max={100}
-                    onValueChange={val => setScale(val[0])}
-                    className="w-full"
-                  />
-                </div>
+                <ValueSlider label="Scale" value={scale} onChange={setScale} min={1} max={100} unit="%" />
                 {/* Toggles */}
                 <div className="flex flex-col gap-2 mt-2">
-                  <label className="flex items-center justify-between text-xs font-medium">
-                    <span>Normalize sizes</span>
-                    <Switch checked={normalizeSize} onCheckedChange={setNormalizeSize} />
-                  </label>
+                  <ValueToggle label="Normalize sizes" value={normalizeSize} onChange={setNormalizeSize} />
                   {supportsFit && (
-                    <label className="flex items-center justify-between text-xs font-medium">
-                      <span>Fit images</span>
-                      <Switch checked={fit} onCheckedChange={setFit} />
-                    </label>
+                    <ValueToggle label="Fit images" value={fit} onChange={setFit} />
                   )}
                   {supportsJustify && (
-                    <label className="flex items-center justify-between text-xs font-medium">
-                      <span>Justify layout</span>
-                      <Switch checked={justify} onCheckedChange={setJustify} />
-                    </label>
+                    <ValueToggle label="Justify layout" value={justify} onChange={setJustify} />
                   )}
                 </div>
 
                 <ToggleSection label="Jitter" enabled={jitterEnabled} onToggle={setJitterEnabled}>
-                  <div className="flex flex-col gap-1">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Position</span>
-                      <span className="text-neutral-400 text-xs">{jitterPosition}%</span>
-                    </label>
-                    <Slider
-                      value={[jitterPosition]}
-                      min={0}
-                      max={100}
-                      onValueChange={val => setJitterPosition(val[0])}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Size</span>
-                      <span className="text-neutral-400 text-xs">{jitterSize}%</span>
-                    </label>
-                    <Slider
-                      value={[jitterSize]}
-                      min={0}
-                      max={100}
-                      onValueChange={val => setJitterSize(val[0])}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Rotation</span>
-                      <span className="text-neutral-400 text-xs">{jitterRotation}°</span>
-                    </label>
-                    <Slider
-                      value={[jitterRotation]}
-                      min={0}
-                      max={45}
-                      onValueChange={val => setJitterRotation(val[0])}
-                      className="w-full"
-                    />
-                  </div>
+                  <ValueSlider label="Position" value={jitterPosition} onChange={setJitterPosition} max={100} unit="%" />
+                  <ValueSlider label="Size" value={jitterSize} onChange={setJitterSize} max={100} unit="%" />
+                  <ValueSlider label="Rotation" value={jitterRotation} onChange={setJitterRotation} max={45} unit="°" />
                 </ToggleSection>
               </div>
             )}
@@ -842,176 +708,26 @@ export default function App() {
 
                 {/* Corner radius selector (0-100%) - slider style */}
                 {shape === 'rect' && (
-                  <div className="flex flex-col gap-1">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Corner Radius</span>
-                      <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
-                    </label>
-                    <Slider
-                      value={[cornerRadius]}
-                      min={0}
-                      max={100}
-                      onValueChange={val => setCornerRadius(val[0])}
-                      className="w-full"
-                    />
-                  </div>
+                  <ValueSlider label="Corner Radius" value={cornerRadius} onChange={setCornerRadius} max={100} unit="%" />
                 )}
 
                 {/* Border selector */}
                 <ToggleSection label="Border" enabled={borderEnabled} onToggle={setBorderEnabled}>
-                  <div className="flex flex-col gap-1">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Size</span>
-                      <span className="text-neutral-400 text-xs">{borderWidth}</span>
-                    </label>
-                    <Slider value={[borderWidth]} min={0} max={100} onValueChange={val => setBorderWidth(val[0])} className="w-full" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium">Color</label>
-                    <ColorSwatch value={borderColor} onChange={setBorderColor} />
-                  </div>
+                  <ValueSlider label="Size" value={borderWidth} onChange={setBorderWidth} max={100} />
+                  <ColorValue label="Color" value={borderColor} onChange={setBorderColor} />
                 </ToggleSection>
 
                 {/* Drop shadow selector */}
                 <ToggleSection label="Drop Shadow" enabled={shadowEnabled} onToggle={setShadowEnabled}>
-                  <div className="flex flex-col gap-1">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Angle</span>
-                      <span className="text-neutral-400 text-xs">{shadowAngle}°</span>
-                    </label>
-                    <Slider value={[shadowAngle]} min={0} max={360} onValueChange={val => setShadowAngle(val[0])} className="w-full" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Distance</span>
-                      <span className="text-neutral-400 text-xs">{shadowDistance}</span>
-                    </label>
-                    <Slider value={[shadowDistance]} min={0} max={100} onValueChange={val => setShadowDistance(val[0])} className="w-full" />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Blur</span>
-                      <span className="text-neutral-400 text-xs">{shadowBlur}</span>
-                    </label>
-                    <Slider value={[shadowBlur]} min={0} max={100} onValueChange={val => setShadowBlur(val[0])} className="w-full" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-medium">Color</label>
-                    <ColorSwatch value={shadowColor} onChange={setShadowColor} />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Opacity</span>
-                      <span className="text-neutral-400 text-xs">{shadowOpacity}%</span>
-                    </label>
-                    <Slider value={[shadowOpacity]} min={0} max={100} onValueChange={val => setShadowOpacity(val[0])} className="w-full" />
-                  </div>
+                  <ValueSlider label="Angle" value={shadowAngle} onChange={setShadowAngle} min={0} max={360} unit="°" />
+                  <ValueSlider label="Distance" value={shadowDistance} onChange={setShadowDistance} max={100} />
+                  <ValueSlider label="Blur" value={shadowBlur} onChange={setShadowBlur} max={100} />
+                  <ColorValue label="Color" value={shadowColor} onChange={setShadowColor} />
+                  <ValueSlider label="Opacity" value={shadowOpacity} onChange={setShadowOpacity} max={100} unit="%" />
                 </ToggleSection>
 
                 {/* Effects selector */}
-                <div className="mt-4">
-                  <label className="text-xs font-medium block mb-2">Effects</label>
-                  <Combobox
-                    options={Object.entries(EFFECT_CONFIG).map(([value, config]) => ({
-                      value,
-                      label: config.label,
-                    }))}
-                    placeholder="Add effect..."
-                    onValueChange={(value) => {
-                      if (!value) return;
-                      const config = EFFECT_CONFIG[value as EffectType];
-                      const next: Effect = {
-                        id: Date.now().toString(),
-                        type: value as EffectType,
-                        value: config.default,
-                      };
-                      if ('blurDefault' in config) {
-                        next.blur = config.blurDefault;
-                      }
-                      if ('blendModes' in config) {
-                        next.blendMode = config.defaultBlendMode ?? config.blendModes[0];
-                      }
-                      setEffects([...effects, next]);
-                    }}
-                    className="w-full"
-                  />
-                  {effects.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {effects.slice().reverse().map((effect) => {
-                        const config = EFFECT_CONFIG[effect.type];
-                        const hasBlur = 'blurDefault' in config;
-                        const hasBlend = 'blendModes' in config;
-                        const blendCfg = hasBlend ? config : null;
-                        return (
-                          <div key={effect.id} className="flex items-center gap-2 border border-neutral-700 rounded-lg p-2">
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center justify-between mb-1">
-                                <label className="text-xs font-medium capitalize">{config.label}</label>
-                                <span className="text-xs text-neutral-400">
-                                  {effect.value}{config.unit}
-                                </span>
-                              </div>
-                              <Slider
-                                value={[effect.value]}
-                                min={config.min}
-                                max={config.max}
-                                onValueChange={(val) => {
-                                  setEffects(effects.map(e => e.id === effect.id ? { ...e, value: val[0] } : e));
-                                }}
-                                className="w-full"
-                              />
-
-                              {hasBlur && (
-                                <>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-neutral-300">Blur</span>
-                                    <span className="text-xs text-neutral-400">{effect.blur ?? config.blurDefault}px</span>
-                                  </div>
-                                  <Slider
-                                    value={[effect.blur ?? config.blurDefault]}
-                                    min={config.blurMin}
-                                    max={config.blurMax}
-                                    onValueChange={(val) => {
-                                      setEffects(effects.map(e => e.id === effect.id ? { ...e, blur: val[0] } : e));
-                                    }}
-                                    className="w-full"
-                                  />
-
-                                </>
-                              )}
-
-                              {hasBlend && blendCfg && (
-                                <>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-xs text-neutral-300">Blend Mode</span>
-                                    <span className="text-xs text-neutral-400">{titleCaseBlend(effect.blendMode ?? blendCfg.defaultBlendMode ?? blendCfg.blendModes[0])}</span>
-                                  </div>
-                                  <Combobox
-                                    options={blendCfg.blendModes.map(mode => ({ value: mode, label: titleCaseBlend(mode) }))}
-                                    value={effect.blendMode}
-                                    onValueChange={(mode) => {
-                                      setEffects(effects.map(e => e.id === effect.id ? { ...e, blendMode: mode as BlendMode } : e));
-                                    }}
-                                    className="w-full"
-                                    placeholder="Select mode"
-                                  />
-                                </>
-                              )}
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 flex-shrink-0"
-                              onClick={() => setEffects(effects.filter(e => e.id !== effect.id))}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <EffectsList effects={effects} setEffects={setEffects} />
               </div>
             )}
           </div>
@@ -1197,95 +913,31 @@ export default function App() {
                 <div className="p-4">
                   <LayoutTypeSelector layout={layout} setLayout={setLayout} />
                   {/* Spacing slider */}
-                  <div className="flex flex-col gap-1 mb-2">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Spacing</span>
-                      <span className="text-neutral-400 text-xs">{spacing}</span>
-                    </label>
-                    <Slider
-                      value={[spacing]}
-                      min={0}
-                      max={100}
-                      onValueChange={val => setSpacing(val[0])}
-                      className="w-full"
-                    />
+                  <div className="mb-2">
+                    <ValueSlider label="Spacing" value={spacing} onChange={setSpacing} max={100} />
                   </div>
                   {/* Scale slider */}
-                  <div className="flex flex-col gap-1 mb-2">
-                    <label className="font-medium text-xs flex items-center justify-between">
-                      <span>Scale</span>
-                      <span className="text-neutral-400 text-xs">{scale}%</span>
-                    </label>
-                    <Slider
-                      value={[scale]}
-                      min={1}
-                      max={100}
-                      onValueChange={val => setScale(val[0])}
-                      className="w-full"
-                    />
+                  <div className="mb-2">
+                    <ValueSlider label="Scale" value={scale} onChange={setScale} min={1} max={100} unit="%" />
                   </div>
                   {/* Toggles */}
                   <div className="flex flex-col gap-2 mt-2 mb-2">
-                    <label className="flex items-center justify-between text-xs font-medium">
-                      <span>Normalize sizes</span>
-                      <Switch checked={normalizeSize} onCheckedChange={setNormalizeSize} />
-                    </label>
+                    <ValueToggle label="Normalize sizes" value={normalizeSize} onChange={setNormalizeSize} />
                     {supportsFit && (
-                      <label className="flex items-center justify-between text-xs font-medium">
-                        <span>Fit images</span>
-                        <Switch checked={fit} onCheckedChange={setFit} />
-                      </label>
+                      <ValueToggle label="Fit images" value={fit} onChange={setFit} />
                     )}
                     {supportsJustify && (
-                      <label className="flex items-center justify-between text-xs font-medium">
-                        <span>Justify layout</span>
-                        <Switch checked={justify} onCheckedChange={setJustify} />
-                      </label>
+                      <ValueToggle label="Justify layout" value={justify} onChange={setJustify} />
                     )}
                   </div>
 
-                  <fieldset className="border border-neutral-700 rounded-lg p-4 flex flex-col gap-3 mt-2">
-                    <legend className="flex items-center gap-2 text-xs font-medium px-2 -mx-2 text-neutral-200">Jitter</legend>
-                    <div className="flex flex-col gap-1">
-                      <label className="font-medium text-xs flex items-center justify-between">
-                        <span>Position</span>
-                        <span className="text-neutral-400 text-xs">{jitterPosition}%</span>
-                      </label>
-                      <Slider
-                        value={[jitterPosition]}
-                        min={0}
-                        max={100}
-                        onValueChange={val => setJitterPosition(val[0])}
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="font-medium text-xs flex items-center justify-between">
-                        <span>Size</span>
-                        <span className="text-neutral-400 text-xs">{jitterSize}%</span>
-                      </label>
-                      <Slider
-                        value={[jitterSize]}
-                        min={0}
-                        max={100}
-                        onValueChange={val => setJitterSize(val[0])}
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="font-medium text-xs flex items-center justify-between">
-                        <span>Rotation</span>
-                        <span className="text-neutral-400 text-xs">{jitterRotation}°</span>
-                      </label>
-                      <Slider
-                        value={[jitterRotation]}
-                        min={0}
-                        max={45}
-                        onValueChange={val => setJitterRotation(val[0])}
-                        className="w-full"
-                      />
-                    </div>
-                  </fieldset>
+                  <div className="mt-2">
+                    <ToggleSection label="Jitter" enabled={jitterEnabled} onToggle={setJitterEnabled}>
+                      <ValueSlider label="Position" value={jitterPosition} onChange={setJitterPosition} max={100} unit="%" />
+                      <ValueSlider label="Size" value={jitterSize} onChange={setJitterSize} max={100} unit="%" />
+                      <ValueSlider label="Rotation" value={jitterRotation} onChange={setJitterRotation} max={45} unit="°" />
+                    </ToggleSection>
+                  </div>
                 </div>
               </TabsContent>
               <TabsContent value="style">
@@ -1298,176 +950,29 @@ export default function App() {
                   </div>
                   {/* Corner radius selector (0-100%) - slider style */}
                   {shape === 'rect' && (
-                    <div className="flex flex-col gap-1 mt-4">
-                      <label className="font-medium text-xs flex items-center justify-between">
-                        <span>Corner Radius</span>
-                        <span className="text-neutral-400 text-xs">{cornerRadius}%</span>
-                      </label>
-                      <Slider
-                        value={[cornerRadius]}
-                        min={0}
-                        max={100}
-                        onValueChange={val => setCornerRadius(val[0])}
-                        className="w-full"
-                      />
+                    <div className="mt-4">
+                      <ValueSlider label="Corner Radius" value={cornerRadius} onChange={setCornerRadius} max={100} unit="%" />
                     </div>
                   )}
                   {/* Border selector */}
                   <div className="mt-4">
                     <ToggleSection label="Border" enabled={borderEnabled} onToggle={setBorderEnabled}>
-                      <div className="flex flex-col gap-1">
-                        <label className="font-medium text-xs flex items-center justify-between">
-                          <span>Size</span>
-                          <span className="text-neutral-400 text-xs">{borderWidth}</span>
-                        </label>
-                        <Slider value={[borderWidth]} min={0} max={100} onValueChange={val => setBorderWidth(val[0])} className="w-full" />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-medium">Color</label>
-                        <ColorSwatch value={borderColor} onChange={setBorderColor} />
-                      </div>
+                      <ValueSlider label="Size" value={borderWidth} onChange={setBorderWidth} max={100} />
+                      <ColorValue label="Color" value={borderColor} onChange={setBorderColor} />
                     </ToggleSection>
                   </div>
                   {/* Drop shadow selector */}
                   <div className="mt-4">
                     <ToggleSection label="Drop Shadow" enabled={shadowEnabled} onToggle={setShadowEnabled}>
-                      <div className="flex flex-col gap-1">
-                        <label className="font-medium text-xs flex items-center justify-between">
-                          <span>Angle</span>
-                          <span className="text-neutral-400 text-xs">{shadowAngle}°</span>
-                        </label>
-                        <Slider value={[shadowAngle]} min={0} max={360} onValueChange={val => setShadowAngle(val[0])} className="w-full" />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="font-medium text-xs flex items-center justify-between">
-                          <span>Distance</span>
-                          <span className="text-neutral-400 text-xs">{shadowDistance}</span>
-                        </label>
-                        <Slider value={[shadowDistance]} min={0} max={100} onValueChange={val => setShadowDistance(val[0])} className="w-full" />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="font-medium text-xs flex items-center justify-between">
-                          <span>Blur</span>
-                          <span className="text-neutral-400 text-xs">{shadowBlur}</span>
-                        </label>
-                        <Slider value={[shadowBlur]} min={0} max={100} onValueChange={val => setShadowBlur(val[0])} className="w-full" />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-medium">Color</label>
-                        <ColorSwatch value={shadowColor} onChange={setShadowColor} />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="font-medium text-xs flex items-center justify-between">
-                          <span>Opacity</span>
-                          <span className="text-neutral-400 text-xs">{shadowOpacity}%</span>
-                        </label>
-                        <Slider value={[shadowOpacity]} min={0} max={100} onValueChange={val => setShadowOpacity(val[0])} className="w-full" />
-                      </div>
+                      <ValueSlider label="Angle" value={shadowAngle} onChange={setShadowAngle} max={360} unit="°" />
+                      <ValueSlider label="Distance" value={shadowDistance} onChange={setShadowDistance} max={100} />
+                      <ValueSlider label="Blur" value={shadowBlur} onChange={setShadowBlur} max={100} />
+                      <ValueSlider label="Opacity" value={shadowOpacity} onChange={setShadowOpacity} max={100} unit="%" />
+                      <ColorValue label="Color" value={shadowColor} onChange={setShadowColor} />
                     </ToggleSection>
                   </div>
                   {/* Effects selector */}
-                  <div className="mt-4">
-                    <label className="text-xs font-medium block mb-2">Effects</label>
-                    <Combobox
-                      options={Object.entries(EFFECT_CONFIG).map(([value, config]) => ({
-                        value,
-                        label: config.label,
-                      }))}
-                      placeholder="Add effect..."
-                      onValueChange={(value) => {
-                        if (!value) return;
-                        const config = EFFECT_CONFIG[value as EffectType];
-                        const next: Effect = {
-                          id: Date.now().toString(),
-                          type: value as EffectType,
-                          value: config.default,
-                        };
-                        if ('blurDefault' in config) {
-                          next.blur = config.blurDefault;
-                        }
-                        if ('blendModes' in config) {
-                          next.blendMode = config.defaultBlendMode ?? config.blendModes[0];
-                        }
-                        setEffects([...effects, next]);
-                      }}
-                      className="w-full"
-                    />
-                    {effects.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {effects.slice().reverse().map((effect) => {
-                          const config = EFFECT_CONFIG[effect.type];
-                          const hasBlur = 'blurDefault' in config;
-                          const hasBlend = 'blendModes' in config;
-                          const blendCfg = hasBlend ? config : null;
-                          return (
-                            <div key={effect.id} className="flex items-center gap-2 border border-neutral-700 rounded-lg p-2">
-                              <div className="flex-1 space-y-2">
-                                <div className="flex items-center justify-between mb-1">
-                                  <label className="text-xs font-medium capitalize">{config.label}</label>
-                                  <span className="text-xs text-neutral-400">
-                                    {effect.value}{config.unit}
-                                  </span>
-                                </div>
-                                <Slider
-                                  value={[effect.value]}
-                                  min={config.min}
-                                  max={config.max}
-                                  onValueChange={(val) => {
-                                    setEffects(effects.map(e => e.id === effect.id ? { ...e, value: val[0] } : e));
-                                  }}
-                                  className="w-full"
-                                />
-
-                                {hasBlur && (
-                                  <>
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-xs text-neutral-300">Blur</span>
-                                      <span className="text-xs text-neutral-400">{effect.blur ?? config.blurDefault}px</span>
-                                    </div>
-                                    <Slider
-                                      value={[effect.blur ?? config.blurDefault]}
-                                      min={config.blurMin}
-                                      max={config.blurMax}
-                                      onValueChange={(val) => {
-                                        setEffects(effects.map(e => e.id === effect.id ? { ...e, blur: val[0] } : e));
-                                      }}
-                                      className="w-full"
-                                    />
-                                  </>
-                                )}
-
-                                {hasBlend && blendCfg && (
-                                  <>
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-xs text-neutral-300">Blend Mode</span>
-                                      <span className="text-xs text-neutral-400">{titleCaseBlend(effect.blendMode ?? blendCfg.defaultBlendMode ?? blendCfg.blendModes[0])}</span>
-                                    </div>
-                                    <Combobox
-                                      options={blendCfg.blendModes.map(mode => ({ value: mode, label: titleCaseBlend(mode) }))}
-                                      value={effect.blendMode}
-                                      onValueChange={(mode) => {
-                                        setEffects(effects.map(e => e.id === effect.id ? { ...e, blendMode: mode as BlendMode } : e));
-                                      }}
-                                      className="w-full"
-                                      placeholder="Select mode"
-                                    />
-                                  </>
-                                )}
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 flex-shrink-0"
-                                onClick={() => setEffects(effects.filter(e => e.id !== effect.id))}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <EffectsList effects={effects} setEffects={setEffects} />
                 </div>
               </TabsContent>
             </Tabs>
@@ -1540,15 +1045,6 @@ export default function App() {
 
 // --- Reusable Components ---
 
-type ImageTileListProps = {
-  images: ComposeImageItem[];
-  onToggleHide: (idx: number) => void;
-  onRemove: (idx: number) => void;
-  onReorder: (fromIndex: number, toIndex: number) => void;
-  onShuffle: () => void;
-  size: 'large' | 'small';
-};
-
 type SortableImageTileProps = {
   img: ComposeImageItem;
   idx: number;
@@ -1620,6 +1116,15 @@ function SortableImageTile({ img, idx, size, onToggleHide, onRemove }: SortableI
     </div>
   );
 }
+
+type ImageTileListProps = {
+  images: ComposeImageItem[];
+  onToggleHide: (idx: number) => void;
+  onRemove: (idx: number) => void;
+  onReorder: (fromIndex: number, toIndex: number) => void;
+  onShuffle: () => void;
+  size: 'large' | 'small';
+};
 
 function ImageTileList({ images, onToggleHide, onRemove, onReorder, onShuffle, size }: ImageTileListProps) {
   const sensors = useSensors(

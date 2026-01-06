@@ -53,3 +53,15 @@ export function mulberry32(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+/**
+ * Converts hyphenated text to title case
+ * @param text - Text with hyphens (e.g., 'color-dodge')
+ * @returns Title case text (e.g., 'Color Dodge')
+ */
+export function titleCase(text: string): string {
+  return text
+    .split('-')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}

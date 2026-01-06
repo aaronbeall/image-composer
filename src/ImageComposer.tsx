@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { Effect } from './App';
 
 import { hashString, mulberry32 } from '@/lib/utils';
+import type { Effect } from './types';
 
 export type LayoutType = 'grid' | 'packed' | 'masonry' | 'lanes' | 'single-column' | 'single-row' | 'cluster' | 'squarified' | 'bubble';
 
