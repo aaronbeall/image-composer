@@ -40,6 +40,8 @@ const LAYOUTS = [
   {
     key: 'grid',
     label: 'Grid',
+    fit: true,
+    justify: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         {[0, 1, 2].map(r => [0, 1, 2].map(c => (
@@ -51,6 +53,8 @@ const LAYOUTS = [
   {
     key: 'packed',
     label: 'Packed',
+    fit: true,
+    justify: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor" />
@@ -66,6 +70,8 @@ const LAYOUTS = [
   {
     key: 'squarified',
     label: 'Squarified',
+    fit: true,
+    justify: false,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor" />
@@ -78,6 +84,8 @@ const LAYOUTS = [
   {
     key: 'masonry',
     label: 'Masonry',
+    fit: true,
+    justify: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <rect x="2" y="2" width="4" height="7" rx="1" fill="currentColor" />
@@ -91,6 +99,8 @@ const LAYOUTS = [
   {
     key: 'lanes',
     label: 'Lanes',
+    fit: true,
+    justify: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="2" y="3" width="8" height="3" rx="0.8" fill="currentColor" />
@@ -105,6 +115,8 @@ const LAYOUTS = [
   {
     key: 'cluster',
     label: 'Cluster',
+    fit: false,
+    justify: false,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <rect x="7" y="7" width="6" height="6" rx="1" fill="currentColor" />
@@ -120,6 +132,8 @@ const LAYOUTS = [
   {
     key: 'single-column',
     label: 'Column',
+    fit: true,
+    justify: false,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="7" y="3" width="6" height="4" rx="1" fill="currentColor" />
@@ -131,6 +145,8 @@ const LAYOUTS = [
   {
     key: 'single-row',
     label: 'Row',
+    fit: true,
+    justify: false,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="3" y="7" width="4" height="6" rx="1" fill="currentColor" />
@@ -139,7 +155,7 @@ const LAYOUTS = [
       </svg>
     ),
   },
-] as const satisfies { key: LayoutType; label: string; icon: React.ReactNode }[];
+] as const satisfies { key: LayoutType; label: string; icon: React.ReactNode; fit: boolean; justify: boolean }[];
 
 const LAYOUT_KEYS: LayoutType[] = LAYOUTS.map(l => l.key);
 
@@ -351,9 +367,10 @@ export default function App() {
   // Update canvas info from ImageComposer
   const visibleImages = useMemo(() => images.filter(img => !img.hidden), [images]);
 
-  // Determine which layouts support the Fit option
-  const supportsFit = ['grid', 'packed', 'masonry', 'lanes', 'single-row', 'single-column', 'squarified'].includes(layout);
-  const supportsJustify = ['grid', 'packed', 'masonry', 'lanes'].includes(layout);
+  // Layout capabilities are driven off metadata on LAYOUTS
+  const selectedLayout = useMemo(() => LAYOUTS.find(l => l.key === layout), [layout]);
+  const supportsFit = !!selectedLayout?.fit;
+  const supportsJustify = !!selectedLayout?.justify;
 
   const randomPick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
   const randomBool = (probability = 0.5) => Math.random() < probability;
