@@ -350,7 +350,7 @@ export default function App() {
 
   // Determine which layouts support the Fit option
   const supportsFit = ['grid', 'packed', 'masonry', 'lanes', 'single-row', 'single-column', 'squarified'].includes(layout);
-  const supportsJustify = ['packed', 'masonry', 'lanes'].includes(layout);
+  const supportsJustify = ['grid', 'packed', 'masonry', 'lanes'].includes(layout);
 
   const randomPick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
   const randomBool = (probability = 0.5) => Math.random() < probability;

@@ -162,7 +162,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       case 'single-column':
         return layoutSingleColumn(loadedImages, sizes, spacingPx, fit);
       case 'grid':
-        return layoutGrid(loadedImages, sizes, spacingPx, fit);
+        return layoutGrid(loadedImages, sizes, spacingPx, fit, justify);
       case 'masonry':
         return layoutMasonry(loadedImages, sizes, spacingPx, fit, justify);
       case 'packed':
@@ -719,35 +719,65 @@ function layoutGrid(
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false
+  fit: boolean = false,
+  justify: boolean = false
 ): LayoutResult {
   // Make a square-ish grid
   const n = loadedImgs.length;
   const cols = Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
+
   const cellW = Math.max(...sizes.map(s => s.w));
   const cellH = Math.max(...sizes.map(s => s.h));
+
   const canvasWidth = cols * cellW + (cols - 1) * spacing + 2 * spacing;
   const canvasHeight = rows * cellH + (rows - 1) * spacing + 2 * spacing;
 
   const items: LayoutItem[] = [];
 
+  // Check if last row is incomplete
+  const lastRowItems = n % cols;
+  const hasIncompleteLastRow = lastRowItems > 0 && lastRowItems < cols;
+
   for (let i = 0; i < n; ++i) {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    const x = col * (cellW + spacing) + spacing;
-    const y = row * (cellH + spacing) + spacing;
+    const isLastRow = row === rows - 1;
 
-    if (fit) {
-      // Fit mode: use full cell dimensions
-      items.push({ x, y, w: cellW, h: cellH, imageIndex: i });
+    // For justified layout with incomplete last row, stretch items to fill width
+    if (justify && hasIncompleteLastRow && isLastRow) {
+      const lastRowCount = lastRowItems;
+      const availableWidth = canvasWidth - 2 * spacing;
+      const totalSpacing = (lastRowCount - 1) * spacing;
+      const itemWidth = (availableWidth - totalSpacing) / lastRowCount;
+
+      const x = col * (itemWidth + spacing) + spacing;
+      const y = row * (cellH + spacing) + spacing;
+
+      if (fit) {
+        items.push({ x, y, w: itemWidth, h: cellH, imageIndex: i });
+      } else {
+        // Center image in stretched cell
+        const imgW = sizes[i].w;
+        const imgH = sizes[i].h;
+        const cx = x + (itemWidth - imgW) / 2;
+        const cy = y + (cellH - imgH) / 2;
+        items.push({ x: cx, y: cy, w: imgW, h: imgH, imageIndex: i });
+      }
     } else {
-      // Center image in cell
-      const imgW = sizes[i].w;
-      const imgH = sizes[i].h;
-      const cx = x + (cellW - imgW) / 2;
-      const cy = y + (cellH - imgH) / 2;
-      items.push({ x: cx, y: cy, w: imgW, h: imgH, imageIndex: i });
+      // Normal grid cell
+      const x = col * (cellW + spacing) + spacing;
+      const y = row * (cellH + spacing) + spacing;
+
+      if (fit) {
+        items.push({ x, y, w: cellW, h: cellH, imageIndex: i });
+      } else {
+        const imgW = sizes[i].w;
+        const imgH = sizes[i].h;
+        const cx = x + (cellW - imgW) / 2;
+        const cy = y + (cellH - imgH) / 2;
+        items.push({ x: cx, y: cy, w: imgW, h: imgH, imageIndex: i });
+      }
     }
   }
 
