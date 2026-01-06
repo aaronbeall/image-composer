@@ -9,6 +9,7 @@ import { addAlphaToHex, cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Download, Eye, EyeOff, HelpCircle, ImagePlus, Mail, LayoutGrid, Paintbrush, Share2, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SiPatreon, SiBuymeacoffee } from 'react-icons/si';
+import logoSvg from '@/assets/logo.svg';
 import { ImageComposer, type ComposeImageItem, type LayoutType } from './ImageComposer';
 import { ColorSwatch } from './components/ColorSwatch';
 import { ToggleSection } from './components/ToggleSection';
@@ -438,7 +439,7 @@ export default function App() {
       {/* Header */}
       <header className="fixed top-0 left-0 w-full h-14 bg-neutral-900/95 flex items-center justify-between z-50 border-b border-neutral-800 shadow-md px-4 lg:px-6">
         <div className="flex items-center gap-2.5">
-          <img src="/src/assets/logo.svg" alt="Image Composer" className="w-8 h-8" />
+          <img src={logoSvg} alt="Image Composer" className="w-8 h-8" />
           <span className="font-bold text-xl select-none bg-gradient-to-r from-indigo-400 via-indigo-300 to-indigo-400 bg-clip-text text-transparent">Image Composer</span>
         </div>
         <div className="flex items-center gap-2">
