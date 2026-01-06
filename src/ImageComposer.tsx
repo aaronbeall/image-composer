@@ -1130,8 +1130,8 @@ function layoutPacked(
         const it = items[n.imgIdx];
         items[n.imgIdx] = {
           ...it,
-          x: node.x + (it.x - bbox.minX) * scaleX,
-          y: node.y + (it.y - bbox.minY) * scaleY,
+          x: node.x + (it.x - bbox!.minX) * scaleX,
+          y: node.y + (it.y - bbox!.minY) * scaleY,
           w: it.w * scaleX,
           h: it.h * scaleY,
         };
@@ -1150,7 +1150,7 @@ function layoutPacked(
   }
 
   // First pass: recursively fill each node region
-  const bboxAfter = justifyNode(root);
+  justifyNode(root);
 
   // Second pass: ensure the whole occupied bbox fills the interior of the bin (preserve outer spacing)
   const occMinX = Math.min(...items.map(it => it.x), spacing);
