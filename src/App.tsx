@@ -1,5 +1,6 @@
 
 import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -37,6 +38,7 @@ export default function App() {
   const [shadowColor, setShadowColor] = useState('#000000');
   const [shadowOpacity, setShadowOpacity] = useState(65);
   const [cornerRadius, setCornerRadius] = useState(0);
+  const [effects, setEffects] = useState<Array<{ id: string; type: string; value: number }>>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('images');
 
@@ -524,6 +526,64 @@ export default function App() {
                     <Slider value={[shadowOpacity]} min={0} max={100} onValueChange={val => setShadowOpacity(val[0])} className="w-full" />
                   </div>
                 </ToggleSection>
+
+                {/* Effects selector */}
+                <div className="mt-4">
+                  <label className="text-xs font-medium block mb-2">Effects</label>
+                  <Combobox
+                    options={[
+                      { value: 'blur', label: 'Blur' },
+                      { value: 'brightness', label: 'Brightness' },
+                      { value: 'contrast', label: 'Contrast' },
+                      { value: 'grayscale', label: 'Grayscale' },
+                      { value: 'hue-rotate', label: 'Hue Rotate' },
+                      { value: 'invert', label: 'Invert' },
+                      { value: 'saturate', label: 'Saturate' },
+                      { value: 'sepia', label: 'Sepia' },
+                    ]}
+                    placeholder="Add effect..."
+                    onValueChange={(value) => {
+                      if (value) {
+                        const defaultValue = value === 'blur' ? 5 : value === 'hue-rotate' ? 0 : 100;
+                        setEffects([...effects, { id: Date.now().toString(), type: value, value: defaultValue }]);
+                      }
+                    }}
+                    className="w-full"
+                  />
+                  {effects.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {effects.slice().reverse().map((effect) => (
+                        <div key={effect.id} className="flex items-center gap-2 border border-neutral-700 rounded-lg p-2">
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-medium capitalize">{effect.type.replace('-', ' ')}</label>
+                              <span className="text-xs text-neutral-400">
+                                {effect.type === 'blur' ? `${effect.value}px` : effect.type === 'hue-rotate' ? `${effect.value}°` : `${effect.value}%`}
+                              </span>
+                            </div>
+                            <Slider
+                              value={[effect.value]}
+                              min={0}
+                              max={effect.type === 'blur' ? 20 : effect.type === 'hue-rotate' ? 360 : 200}
+                              onValueChange={(val) => {
+                                setEffects(effects.map(e => e.id === effect.id ? { ...e, value: val[0] } : e));
+                              }}
+                              className="w-full"
+                            />
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 flex-shrink-0"
+                            onClick={() => setEffects(effects.filter(e => e.id !== effect.id))}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -580,6 +640,7 @@ export default function App() {
                   shadowDistance={shadowDistance}
                   shadowBlur={shadowBlur}
                   shadowColor={addAlphaToHex(shadowColor, shadowOpacity)}
+                  effects={effects}
                   onUpdate={setCanvasInfo}
                 />
               </div>
@@ -776,6 +837,63 @@ export default function App() {
                         <Slider value={[shadowOpacity]} min={0} max={100} onValueChange={val => setShadowOpacity(val[0])} className="w-full" />
                       </div>
                     </ToggleSection>
+                  </div>
+                  {/* Effects selector */}
+                  <div className="mt-4">
+                    <label className="text-xs font-medium block mb-2">Effects</label>
+                    <Combobox
+                      options={[
+                        { value: 'blur', label: 'Blur' },
+                        { value: 'brightness', label: 'Brightness' },
+                        { value: 'contrast', label: 'Contrast' },
+                        { value: 'grayscale', label: 'Grayscale' },
+                        { value: 'hue-rotate', label: 'Hue Rotate' },
+                        { value: 'invert', label: 'Invert' },
+                        { value: 'saturate', label: 'Saturate' },
+                        { value: 'sepia', label: 'Sepia' },
+                      ]}
+                      placeholder="Add effect..."
+                      onValueChange={(value) => {
+                        if (value) {
+                          const defaultValue = value === 'blur' ? 5 : value === 'hue-rotate' ? 0 : 100;
+                          setEffects([...effects, { id: Date.now().toString(), type: value, value: defaultValue }]);
+                        }
+                      }}
+                      className="w-full"
+                    />
+                    {effects.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {effects.slice().reverse().map((effect) => (
+                          <div key={effect.id} className="flex items-center gap-2 border border-neutral-700 rounded-lg p-2">
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium capitalize">{effect.type.replace('-', ' ')}</label>
+                                <span className="text-xs text-neutral-400">
+                                  {effect.type === 'blur' ? `${effect.value}px` : effect.type === 'hue-rotate' ? `${effect.value}\u00b0` : `${effect.value}%`}
+                                </span>
+                              </div>
+                              <Slider
+                                value={[effect.value]}
+                                min={0}
+                                max={effect.type === 'blur' ? 20 : effect.type === 'hue-rotate' ? 360 : 200}
+                                onValueChange={(val) => {
+                                  setEffects(effects.map(e => e.id === effect.id ? { ...e, value: val[0] } : e));
+                                }}
+                                className="w-full"
+                              />
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 flex-shrink-0"
+                              onClick={() => setEffects(effects.filter(e => e.id !== effect.id))}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </TabsContent>

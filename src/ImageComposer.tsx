@@ -27,6 +27,7 @@ export interface StyleOptions {
   shadowDistance?: number;
   shadowBlur?: number;
   shadowColor?: string;
+  effects?: Array<{ id: string; type: string; value: number }>;
 }
 
 interface ImageComposerProps extends LayoutOptions, StyleOptions {
@@ -76,7 +77,7 @@ interface LayoutResult {
   items: LayoutItem[];
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', style, onUpdate }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', effects = [], style, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [loadedImages, setLoadedImages] = useState<HTMLImageElement[] | null>(null);
@@ -171,7 +172,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawComposition(ctx, layoutResult, images, loadedImages, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor);
+    drawComposition(ctx, layoutResult, images, loadedImages, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor, effects);
 
     onUpdate({
       width: canvas.width,
@@ -179,7 +180,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       getImageData: () => canvas.toDataURL('image/png'),
       getImageBlob: () => new Promise(resolve => canvas.toBlob(resolve, 'image/png')),
     });
-  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor, onUpdate]);
+  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor, effects, onUpdate]);
 
   return (
     <canvas
@@ -214,7 +215,8 @@ function drawComposition(
   shadowAngle: number = 0,
   shadowDistance: number = 0,
   shadowBlur: number = 0,
-  shadowColor: string = '#000000'
+  shadowColor: string = '#000000',
+  effects: Array<{ id: string; type: string; value: number }> = []
 ) {
   // Set canvas size
   ctx.canvas.width = layout.canvasWidth;
@@ -259,7 +261,7 @@ function drawComposition(
 
   // Draw each image
   for (const item of layout.items) {
-    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadiusPx, border, dropShadow);
+    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadiusPx, border, dropShadow, effects);
   }
 }
 
@@ -299,7 +301,8 @@ function drawImage(
   fit: boolean,
   cornerRadiusPx: number = 0,
   border?: { color: string, width: number },
-  dropShadow?: { color: string, offsetX: number, offsetY: number, blur: number }
+  dropShadow?: { color: string, offsetX: number, offsetY: number, blur: number },
+  effects: Array<{ id: string; type: string; value: number }> = []
 ) {
   const { x, y, w, h } = item;
 
@@ -337,8 +340,36 @@ function drawImage(
     ctx.restore();
   }
 
-  // Clip and draw image
+  // Clip and draw image with effects
   ctx.save();
+
+  // Apply effects filter
+  if (effects.length > 0) {
+    const filterString = effects.map(effect => {
+      switch (effect.type) {
+        case 'blur':
+          return `blur(${effect.value}px)`;
+        case 'brightness':
+          return `brightness(${effect.value}%)`;
+        case 'contrast':
+          return `contrast(${effect.value}%)`;
+        case 'grayscale':
+          return `grayscale(${effect.value}%)`;
+        case 'hue-rotate':
+          return `hue-rotate(${effect.value}deg)`;
+        case 'invert':
+          return `invert(${effect.value}%)`;
+        case 'saturate':
+          return `saturate(${effect.value}%)`;
+        case 'sepia':
+          return `sepia(${effect.value}%)`;
+        default:
+          return '';
+      }
+    }).filter(Boolean).join(' ');
+    ctx.filter = filterString;
+  }
+
   ctx.beginPath();
   drawShapePath(ctx, x, y, w, h, cornerRadiusPx);
   ctx.clip();
