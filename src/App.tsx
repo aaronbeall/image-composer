@@ -5,7 +5,6 @@ import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { addAlphaToHex, cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Download, Eye, EyeOff, HelpCircle, ImagePlus, Mail, LayoutGrid, Paintbrush, Share2, Upload, X, AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -14,6 +13,7 @@ import logoSvg from '@/assets/logo.svg';
 import { ImageComposer, type ComposeImageItem, type LayoutType } from './ImageComposer';
 import { ColorSwatch } from './components/ColorSwatch';
 import { ToggleSection } from './components/ToggleSection';
+import { PopoverTooltip } from './components/PopoverTooltip';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -1087,14 +1087,15 @@ export default function App() {
                     <>
                       <span>Image size: {canvasInfo.width} × {canvasInfo.height} px</span>
                       {(canvasInfo.width >= 3200 || canvasInfo.height >= 3200) && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <AlertTriangle size={16} className="text-orange-400 cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            3200px is the maximum size. Contact support for larger image sizes.
-                          </TooltipContent>
-                        </Tooltip>
+                        <PopoverTooltip
+                          trigger={
+                            <button className="p-1 hover:bg-neutral-800 rounded transition">
+                              <AlertTriangle size={16} className="text-orange-400" />
+                            </button>
+                          }
+                          content="3200px is the maximum size. Contact support for larger image sizes."
+                          contentClassName="w-64 text-sm"
+                        />
                       )}
                     </>
                   )}
