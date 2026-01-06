@@ -76,7 +76,6 @@ const EFFECT_CONFIG = {
 
 export type EffectType = keyof typeof EFFECT_CONFIG;
 export type BlendMode = (typeof BLEND_MODES)[number];
-type EffectConfig = (typeof EFFECT_CONFIG)[EffectType];
 
 export type Effect = {
   id: string;
@@ -606,18 +605,17 @@ export default function App() {
                     placeholder="Add effect..."
                     onValueChange={(value) => {
                       if (!value) return;
-                      const config = EFFECT_CONFIG[value as EffectType] as EffectConfig;
+                      const config = EFFECT_CONFIG[value as EffectType];
                       const next: Effect = {
                         id: Date.now().toString(),
                         type: value as EffectType,
                         value: config.default,
                       };
                       if ('blurDefault' in config) {
-                        next.blur = (config as typeof EFFECT_CONFIG.bloom).blurDefault;
+                        next.blur = config.blurDefault;
                       }
                       if ('blendModes' in config) {
-                        const cfg = config as { blendModes: readonly string[]; defaultBlendMode?: string };
-                        next.blendMode = cfg.defaultBlendMode ?? cfg.blendModes[0];
+                        next.blendMode = config.defaultBlendMode ?? config.blendModes[0];
                       }
                       setEffects([...effects, next]);
                     }}
@@ -626,10 +624,10 @@ export default function App() {
                   {effects.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {effects.slice().reverse().map((effect) => {
-                        const config = EFFECT_CONFIG[effect.type as EffectType];
+                        const config = EFFECT_CONFIG[effect.type];
                         const hasBlur = 'blurDefault' in config;
                         const hasBlend = 'blendModes' in config;
-                        const blendCfg = hasBlend ? (config as { blendModes: readonly string[]; defaultBlendMode?: string }) : null;
+                        const blendCfg = hasBlend ? config : null;
                         return (
                           <div key={effect.id} className="flex items-center gap-2 border border-neutral-700 rounded-lg p-2">
                             <div className="flex-1 space-y-2">
@@ -653,12 +651,12 @@ export default function App() {
                                 <>
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs text-neutral-300">Blur</span>
-                                    <span className="text-xs text-neutral-400">{effect.blur ?? (config as typeof EFFECT_CONFIG.bloom).blurDefault}px</span>
+                                    <span className="text-xs text-neutral-400">{effect.blur ?? config.blurDefault}px</span>
                                   </div>
                                   <Slider
-                                    value={[effect.blur ?? (config as typeof EFFECT_CONFIG.bloom).blurDefault]}
-                                    min={(config as typeof EFFECT_CONFIG.bloom).blurMin}
-                                    max={(config as typeof EFFECT_CONFIG.bloom).blurMax}
+                                    value={[effect.blur ?? config.blurDefault]}
+                                    min={config.blurMin}
+                                    max={config.blurMax}
                                     onValueChange={(val) => {
                                       setEffects(effects.map(e => e.id === effect.id ? { ...e, blur: val[0] } : e));
                                     }}
@@ -965,18 +963,17 @@ export default function App() {
                       placeholder="Add effect..."
                       onValueChange={(value) => {
                         if (!value) return;
-                        const config = EFFECT_CONFIG[value as EffectType] as EffectConfig;
+                        const config = EFFECT_CONFIG[value as EffectType];
                         const next: Effect = {
                           id: Date.now().toString(),
                           type: value as EffectType,
                           value: config.default,
                         };
                         if ('blurDefault' in config) {
-                          next.blur = (config as typeof EFFECT_CONFIG.bloom).blurDefault;
+                          next.blur = config.blurDefault;
                         }
                         if ('blendModes' in config) {
-                          const cfg = config as { blendModes: readonly string[]; defaultBlendMode?: string };
-                          next.blendMode = cfg.defaultBlendMode ?? cfg.blendModes[0];
+                          next.blendMode = config.defaultBlendMode ?? config.blendModes[0];
                         }
                         setEffects([...effects, next]);
                       }}
@@ -985,10 +982,10 @@ export default function App() {
                     {effects.length > 0 && (
                       <div className="mt-3 space-y-2">
                         {effects.slice().reverse().map((effect) => {
-                          const config = EFFECT_CONFIG[effect.type as EffectType];
+                          const config = EFFECT_CONFIG[effect.type];
                           const hasBlur = 'blurDefault' in config;
                           const hasBlend = 'blendModes' in config;
-                          const blendCfg = hasBlend ? (config as { blendModes: readonly string[]; defaultBlendMode?: string }) : null;
+                          const blendCfg = hasBlend ? config : null;
                           return (
                             <div key={effect.id} className="flex items-center gap-2 border border-neutral-700 rounded-lg p-2">
                               <div className="flex-1 space-y-2">
@@ -1012,12 +1009,12 @@ export default function App() {
                                   <>
                                     <div className="flex items-center justify-between">
                                       <span className="text-xs text-neutral-300">Blur</span>
-                                      <span className="text-xs text-neutral-400">{effect.blur ?? (config as typeof EFFECT_CONFIG.bloom).blurDefault}px</span>
+                                      <span className="text-xs text-neutral-400">{effect.blur ?? config.blurDefault}px</span>
                                     </div>
                                     <Slider
-                                      value={[effect.blur ?? (config as typeof EFFECT_CONFIG.bloom).blurDefault]}
-                                      min={(config as typeof EFFECT_CONFIG.bloom).blurMin}
-                                      max={(config as typeof EFFECT_CONFIG.bloom).blurMax}
+                                      value={[effect.blur ?? config.blurDefault]}
+                                      min={config.blurMin}
+                                      max={config.blurMax}
                                       onValueChange={(val) => {
                                         setEffects(effects.map(e => e.id === effect.id ? { ...e, blur: val[0] } : e));
                                       }}
