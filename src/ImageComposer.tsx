@@ -47,6 +47,8 @@ interface ImageComposerProps extends LayoutOptions, StyleOptions {
   style?: React.CSSProperties;
 }
 
+type DrawingOptions = StyleOptions & LayoutOptions & { fit: boolean };
+
 // Utility to load a single image (used with caching below)
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -181,11 +183,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawComposition(
-      ctx,
-      layoutResult,
-      images,
-      loadedImages,
+    drawComposition(ctx, layoutResult, images, loadedImages, {
       fit,
       backgroundColor,
       cornerRadius,
@@ -200,8 +198,8 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       effects,
       jitterPosition,
       jitterSize,
-      jitterRotation
-    );
+      jitterRotation,
+    });
 
     onUpdate({
       width: canvas.width,
@@ -234,21 +232,23 @@ function drawComposition(
   layout: LayoutResult,
   images: ComposeImageItem[],
   loadedImgs: HTMLImageElement[],
-  fit: boolean,
-  backgroundColor: string,
-  cornerRadius: number = 0,
-  borderEnabled: boolean = false,
-  borderWidth: number = 0,
-  borderColor: string = '#ffffff',
-  shadowEnabled: boolean = false,
-  shadowAngle: number = 0,
-  shadowDistance: number = 0,
-  shadowBlur: number = 0,
-  shadowColor: string = '#000000',
-  effects: Effect[] = [],
-  jitterPosition: number = 0,
-  jitterSize: number = 0,
-  jitterRotation: number = 0
+  {
+    fit,
+    backgroundColor = 'transparent',
+    cornerRadius = 0,
+    borderEnabled = false,
+    borderWidth = 0,
+    borderColor = '#ffffff',
+    shadowEnabled = false,
+    shadowAngle = 0,
+    shadowDistance = 0,
+    shadowBlur = 0,
+    shadowColor = '#000000',
+    effects = [],
+    jitterPosition = 0,
+    jitterSize = 0,
+    jitterRotation = 0,
+  }: DrawingOptions
 ) {
   // Set canvas size
   ctx.canvas.width = layout.canvasWidth;
@@ -315,7 +315,14 @@ function drawComposition(
     const x = baseCx + dx - w / 2;
     const y = baseCy + dy - h / 2;
 
-    drawImage(ctx, { ...item, x, y, w, h }, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadiusPx, border, dropShadow, effects, rotationRad);
+    drawImage(ctx, { ...item, x, y, w, h }, images[item.imageIndex], loadedImgs[item.imageIndex], {
+      fit,
+      cornerRadiusPx,
+      border,
+      dropShadow,
+      effects,
+      rotationRad,
+    });
   }
 }
 
@@ -448,12 +455,21 @@ function drawImage(
   item: LayoutItem,
   imageData: ComposeImageItem,
   img: HTMLImageElement,
-  fit: boolean,
-  cornerRadiusPx: number = 0,
-  border?: { color: string, width: number },
-  dropShadow?: { color: string, offsetX: number, offsetY: number, blur: number },
-  effects: Effect[] = [],
-  rotationRad: number = 0
+  {
+    fit,
+    cornerRadiusPx = 0,
+    border,
+    dropShadow,
+    effects = [],
+    rotationRad = 0,
+  }: {
+    fit: boolean;
+    cornerRadiusPx?: number;
+    border?: { color: string; width: number };
+    dropShadow?: { color: string; offsetX: number; offsetY: number; blur: number };
+    effects?: Effect[];
+    rotationRad?: number;
+  }
 ) {
   const { x, y, w, h } = item;
 
