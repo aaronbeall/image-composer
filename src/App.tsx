@@ -423,7 +423,7 @@ export default function App() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-neutral-900 text-white flex flex-col">
+    <div className="w-screen h-screen bg-neutral-900 text-white flex flex-col overflow-hidden">
       {/* Hidden file input for all Browse buttons */}
       <input
         type="file"
@@ -579,7 +579,7 @@ export default function App() {
         </div>
       </header>
       {/* Main layout */}
-      <div className="flex-1 flex flex-row pt-14 w-full">
+      <div className="flex-1 flex flex-row pt-14 w-full overflow-hidden">
         {/* Sidebar (large screens) */}
         <aside className={cn(
           'hidden lg:flex flex-col bg-neutral-950 border-r border-neutral-800 transition-all duration-200',
@@ -955,7 +955,7 @@ export default function App() {
           </div>
         </div>
         {/* Main work area */}
-        <main className="flex-1 flex flex-col items-center justify-center bg-neutral-900 relative overflow-hidden">
+        <main className="flex-1 flex flex-col items-center justify-center bg-neutral-900 relative overflow-hidden pb-16 lg:pb-0">
           {images.length === 0 ? (
             <div
               ref={dropAreaRef}
@@ -965,7 +965,7 @@ export default function App() {
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
               aria-label="Main image drop area"
-              className={`transition-all border-2 ${isDragOver ? 'border-indigo-400 outline outline-2 outline-indigo-300 shadow-lg bg-gradient-to-r from-indigo-950 to-indigo-900' : 'border-dashed border-neutral-700'} rounded-2xl min-h-[320px] min-w-[340px] max-w-lg w-full flex flex-col justify-center items-center relative p-8 mb-8 cursor-pointer`}
+              className={`transition-all border-2 ${isDragOver ? 'border-indigo-400 outline outline-2 outline-indigo-300 shadow-lg bg-gradient-to-r from-indigo-950 to-indigo-900' : 'border-dashed border-neutral-700'} rounded-2xl max-w-lg w-full flex flex-col justify-center items-center relative p-8 mb-8 cursor-pointer`}
             >
               <Upload size={48} className="text-neutral-400 mb-4" />
               <div className="font-bold text-2xl text-white mb-2">Drag and drop images here</div>
@@ -978,6 +978,9 @@ export default function App() {
                 </Button>
               </div>
               <div className="text-neutral-400 text-base mt-2">or use <kbd>Ctrl+V</kbd> / <kbd>Cmd+V</kbd> to paste from your clipboard</div>
+              <div className="text-neutral-500 text-xs mt-6 max-w-xs text-center">
+                Your images stay private — nothing is uploaded to servers. No account needed. All processing happens locally on your device.
+              </div>
             </div>
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center relative overflow-hidden">
@@ -1074,18 +1077,18 @@ export default function App() {
         </main>
         {/* Bottom nav and drawer (small screens) */}
         <Drawer>
-          <div className="fixed bottom-0 left-0 w-full z-50 bg-neutral-950 border-t border-neutral-800 flex lg:hidden">
+          <div className="fixed bottom-0 left-0 w-full z-50 bg-neutral-950 border-t border-neutral-800 flex lg:hidden max-w-screen h-16">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="flex flex-row w-full justify-between px-2 bg-transparent">
+              <TabsList className="flex flex-row w-full justify-between px-2 bg-transparent h-full">
                 {SIDEBAR_TABS.map(tab => (
                   <DrawerTrigger asChild key={tab.key}>
-                    <TabsTrigger value={tab.key} className="flex-1 flex flex-col items-center gap-0.5 data-[state=active]:text-indigo-400 py-2">{tab.icon}<span className="text-xs">{tab.label}</span></TabsTrigger>
+                    <TabsTrigger value={tab.key} className="flex-1 flex flex-col items-center gap-0.5 data-[state=active]:text-indigo-400 py-3">{tab.icon}<span className="text-xs">{tab.label}</span></TabsTrigger>
                   </DrawerTrigger>
                 ))}
               </TabsList>
             </Tabs>
           </div>
-          <DrawerContent className="lg:hidden bg-neutral-950 border-t border-neutral-800 rounded-t-2xl p-0 max-h-[80vh] flex flex-col">
+          <DrawerContent className="lg:hidden bg-neutral-950 border-t border-neutral-800 rounded-t-2xl p-0 max-h-[80vh] flex flex-col overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
               <TabsList className="hidden" />
               <TabsContent value="images">
