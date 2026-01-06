@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { addAlphaToHex, cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Download, Eye, EyeOff, ImagePlus, LayoutGrid, Menu, Paintbrush, Share2, Upload, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Download, Eye, EyeOff, ImagePlus, LayoutGrid, Menu, Paintbrush, Share2, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImageComposer, type ComposeImageItem, type LayoutType } from './ImageComposer';
 import { ColorSwatch } from './components/ColorSwatch';
@@ -469,6 +469,16 @@ export default function App() {
                     onReorder={(fromIndex, toIndex) => {
                       setImages(prev => arrayMove(prev, fromIndex, toIndex));
                     }}
+                    onShuffle={() => {
+                      setImages(prev => {
+                        const shuffled = [...prev];
+                        for (let i = shuffled.length - 1; i > 0; i--) {
+                          const j = Math.floor(Math.random() * (i + 1));
+                          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                        }
+                        return shuffled;
+                      });
+                    }}
                     size="large"
                   />
                 </div>
@@ -886,6 +896,16 @@ export default function App() {
                     onReorder={(fromIndex, toIndex) => {
                       setImages(prev => arrayMove(prev, fromIndex, toIndex));
                     }}
+                    onShuffle={() => {
+                      setImages(prev => {
+                        const shuffled = [...prev];
+                        for (let i = shuffled.length - 1; i > 0; i--) {
+                          const j = Math.floor(Math.random() * (i + 1));
+                          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                        }
+                        return shuffled;
+                      });
+                    }}
                     size="small"
                   />
                 </div>
@@ -1180,6 +1200,7 @@ type ImageTileListProps = {
   onToggleHide: (idx: number) => void;
   onRemove: (idx: number) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  onShuffle: () => void;
   size: 'large' | 'small';
 };
 
@@ -1255,7 +1276,7 @@ function SortableImageTile({ img, idx, size, onToggleHide, onRemove }: SortableI
   );
 }
 
-function ImageTileList({ images, onToggleHide, onRemove, onReorder, size }: ImageTileListProps) {
+function ImageTileList({ images, onToggleHide, onRemove, onReorder, onShuffle, size }: ImageTileListProps) {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -1296,6 +1317,18 @@ function ImageTileList({ images, onToggleHide, onRemove, onReorder, size }: Imag
               onRemove={onRemove}
             />
           ))}
+          {images.length > 1 && (
+            <button
+              onClick={onShuffle}
+              className={size === 'large'
+                ? 'relative min-w-[100px] max-w-[140px] flex flex-col items-center justify-center bg-neutral-800 hover:bg-neutral-700 rounded-lg shadow-md p-2 cursor-pointer transition-colors border border-neutral-700 hover:border-indigo-500'
+                : 'relative min-w-[72px] max-w-[90px] flex flex-col items-center justify-center bg-neutral-800 hover:bg-neutral-700 rounded-lg shadow-md p-1 mx-1 cursor-pointer transition-colors border border-neutral-700 hover:border-indigo-500'}
+              title="Shuffle images"
+            >
+              <Dices size={size === 'large' ? 32 : 24} className="text-neutral-400" />
+              <span className="text-xs text-neutral-400 mt-1">Shuffle</span>
+            </button>
+          )}
         </div>
       </SortableContext>
     </DndContext>
