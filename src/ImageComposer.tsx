@@ -1,12 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import type { StyleOptions } from './lib/draw';
-import { layoutComposition, type ComposeImageItem, type LayoutOptions, type LayoutType } from './lib/layout';
+import { type ComposeImageItem, type LayoutOptions } from './lib/layout';
 
 interface ImageComposerProps extends LayoutOptions, StyleOptions {
   images: ComposeImageItem[];
-  normalizeSize: boolean;
-  layout: LayoutType;
   onUpdate(info: { width: number; height: number; getImageData: () => string; getImageBlob: () => Promise<Blob | null>; }): void;
   style?: React.CSSProperties;
 }
@@ -39,7 +37,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
   // Initialize web worker
   useEffect(() => {
     const drawWorker = new Worker(
-      new URL('./lib/draw.worker.ts?worker', import.meta.url),
+      new URL('./lib/compose.worker.ts?worker', import.meta.url),
       { type: 'module' }
     );
 
@@ -106,23 +104,9 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     return () => { cancelled = true; };
   }, [images]);
 
-  // Phase 2: compute layout (memoized) when images or layout inputs change
-  const layoutResult = useMemo(() => {
-    return layoutComposition({
-      images,
-      loadedImages: loadedImageBitmaps,
-      normalizeSize,
-      layout,
-      spacing,
-      fit,
-      scale,
-      justify
-    });
-  }, [loadedImageBitmaps, images, normalizeSize, layout, spacing, fit, scale, justify]);
-
-  // Phase 3: draw composition using worker when layout or style changes
+  // Compose in worker when inputs change
   useEffect(() => {
-    if (!layoutResult || !loadedImageBitmaps || loadedImageBitmaps.length !== images.length) return;
+    if (!loadedImageBitmaps || loadedImageBitmaps.length !== images.length) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -133,22 +117,25 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       return;
     }
 
-    // Create an offscreen canvas with the same dimensions as the layout result
-    const offscreenCanvas = new OffscreenCanvas(
-      layoutResult.canvasWidth,
-      layoutResult.canvasHeight
-    );
+    // Create a tiny offscreen canvas; worker will resize based on layout
+    const offscreenCanvas = new OffscreenCanvas(1, 1);
 
-    // Send work to worker (worker will send 'renderingStarted' message)
+    // Send work to worker (worker will send 'start' message)
     try {
       workerRef.current.postMessage({
-        type: 'draw',
+        type: 'compose',
         offscreenCanvas,
-        layoutResult,
         images,
         loadedImgs: loadedImageBitmaps,
         options: {
+          // Layout options
+          normalizeSize,
+          layout,
+          spacing,
           fit,
+          scale,
+          justify,
+          // Style options
           backgroundColor,
           cornerRadius,
           borderEnabled,
@@ -170,10 +157,14 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       console.error('Error sending message to worker:', error);
     }
   }, [
-    layoutResult,
     loadedImageBitmaps,
     images,
+    normalizeSize,
+    layout,
+    spacing,
     fit,
+    scale,
+    justify,
     backgroundColor,
     cornerRadius,
     borderEnabled,

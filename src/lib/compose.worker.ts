@@ -1,11 +1,10 @@
 import { drawComposition, type DrawingOptions } from './draw';
-import type { LayoutResult } from './layout';
+import { layoutComposition, type LayoutResult } from './layout';
 import type { ComposeImageItem } from './layout';
 
 interface DrawWorkerMessage {
-  type: 'draw';
+  type: 'compose';
   offscreenCanvas: OffscreenCanvas;
-  layoutResult: LayoutResult;
   images: ComposeImageItem[];
   loadedImgs: ImageBitmap[];
   options: DrawingOptions;
@@ -19,8 +18,11 @@ interface DrawWorkerResponse {
   error?: string;
 }
 
+let lastLayoutKey: string | null = null;
+let lastLayoutResult: LayoutResult | null = null;
+
 self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
-  if (event.data.type !== 'draw') return;
+  if (event.data.type !== 'compose') return;
 
   // Notify main thread that rendering has started
   self.postMessage({
@@ -28,7 +30,38 @@ self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
   } as DrawWorkerResponse);
 
   try {
-    const { offscreenCanvas, layoutResult, images, loadedImgs, options } = event.data;
+    const { offscreenCanvas, images, loadedImgs, options } = event.data;
+
+    const layoutParams = {
+      images,
+      loadedImages: loadedImgs,
+      normalizeSize: options.normalizeSize,
+      layout: options.layout,
+      spacing: options.spacing,
+      fit: options.fit,
+      scale: options.scale,
+      justify: options.justify,
+    }
+
+    // Compute layout (with simple cache)
+    const layoutKey = JSON.stringify({
+      ...layoutParams,
+      images: layoutParams.images.map(i => i.src),
+      dims: layoutParams.loadedImages.map(b => [b.width, b.height]),
+    });
+
+    let layoutResult: LayoutResult;
+    if (lastLayoutKey === layoutKey && lastLayoutResult) {
+      layoutResult = lastLayoutResult;
+    } else {
+      layoutResult = layoutComposition(layoutParams);
+      lastLayoutKey = layoutKey;
+      lastLayoutResult = layoutResult;
+    }
+
+    // Ensure canvas matches layout size before drawing
+    offscreenCanvas.width = layoutResult.canvasWidth;
+    offscreenCanvas.height = layoutResult.canvasHeight;
     const ctx = offscreenCanvas.getContext('2d');
 
     if (!ctx) {
@@ -39,7 +72,7 @@ self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
       return;
     }
 
-    // Call the expensive drawing function with ImageBitmaps
+    // Draw composition using computed layout
     drawComposition(ctx, layoutResult, images, loadedImgs, options);
 
     // Transfer the rendered image back to the main thread

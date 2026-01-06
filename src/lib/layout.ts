@@ -14,6 +14,11 @@ export interface ComposeImageItem {
 }
 
 export interface LayoutOptions {
+  // Core layout selection and normalization behavior
+  layout: LayoutType;
+  normalizeSize: boolean;
+
+  // Controls
   spacing?: number; // 0-100, relative to avg image size
   fit?: boolean; // fit option for grid/masonry
   scale?: number;
@@ -65,7 +70,7 @@ export function layoutComposition({
   scale = 1,
   justify = false,
 }: {
-  loadedImages: ImageBitmap[] | null;
+  loadedImages: ImageBitmap[];
   images: ComposeImageItem[];
   normalizeSize: boolean;
   layout: LayoutType;
@@ -74,7 +79,7 @@ export function layoutComposition({
   scale?: number;
   justify?: boolean;
 }) {
-  if (!loadedImages || !loadedImages.length || loadedImages.length !== images.length) return null;
+  if (!loadedImages || !loadedImages.length || loadedImages.length !== images.length) return { canvasWidth: 1, canvasHeight: 1, items: [] };
 
   // Determine normalized size if needed
   let norm = { width: 0, height: 0 };
@@ -137,7 +142,7 @@ export function layoutComposition({
       case 'bubble':
         return layoutBubble(loadedImages, sizes, spacingPx);
       default:
-        return { canvasWidth: 800, canvasHeight: 600, items: [] } as LayoutResult;
+        return { canvasWidth: 800, canvasHeight: 600, items: [] };
     }
   })();
 
