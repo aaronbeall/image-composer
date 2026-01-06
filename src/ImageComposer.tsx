@@ -23,6 +23,7 @@ export interface LayoutOptions {
   jitterPosition?: number;
   jitterSize?: number;
   jitterRotation?: number;
+  justify?: boolean;
 }
 
 export interface StyleOptions {
@@ -88,7 +89,7 @@ interface LayoutResult {
   items: LayoutItem[];
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, jitterPosition = 0, jitterSize = 0, jitterRotation = 0, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', effects = [], style, onUpdate }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, jitterPosition = 0, jitterSize = 0, jitterRotation = 0, justify = false, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', effects = [], style, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [loadedImages, setLoadedImages] = useState<HTMLImageElement[] | null>(null);
@@ -163,19 +164,19 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       case 'grid':
         return layoutGrid(loadedImages, sizes, spacingPx, fit);
       case 'masonry':
-        return layoutMasonry(loadedImages, sizes, spacingPx, fit);
+        return layoutMasonry(loadedImages, sizes, spacingPx, fit, justify);
       case 'packed':
-        return layoutPacked(sizes, spacingPx);
+        return layoutPacked(sizes, spacingPx, justify);
       case 'cluster':
         return layoutRadialMasonry(sizes, spacingPx);
       case 'squarified':
         return layoutSquarified(sizes, spacingPx);
       case 'lanes':
-        return layoutLanes(loadedImages, sizes, spacingPx, fit);
+        return layoutLanes(loadedImages, sizes, spacingPx, fit, justify);
       default:
         return { canvasWidth: 800, canvasHeight: 600, items: [] } as LayoutResult;
     }
-  }, [loadedImages, images, normalizeSize, layout, spacing, fit, scale]);
+  }, [loadedImages, images, normalizeSize, layout, spacing, fit, scale, justify]);
 
   // Phase 3: draw composition when layout or style changes
   useEffect(() => {
@@ -761,7 +762,8 @@ function layoutMasonry(
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false
+  fit: boolean = false,
+  justify: boolean = false
 ): LayoutResult {
   // Simple masonry: assign each image to the shortest column
   const n = loadedImgs.length;
@@ -772,6 +774,7 @@ function layoutMasonry(
   for (let i = 0; i < cols - 1; ++i) colWidths[i] += spacing;
   const colHeights = Array(cols).fill(0);
   const items: LayoutItem[] = [];
+  const itemCols: number[] = [];
   for (let i = 0; i < n; ++i) {
     // Find shortest column
     let minCol = 0;
@@ -788,10 +791,65 @@ function layoutMasonry(
     }
     items.push({ x: x + spacing, y: y + spacing, w: drawW, h: drawH, imageIndex: i });
     colHeights[minCol] += drawH + (colHeights[minCol] > 0 ? spacing : 0);
+    itemCols[i] = minCol;
   }
-  const canvasWidth = colWidths.reduce((a, b) => a + b, 0) + 2 * spacing;
-  const canvasHeight = Math.max(...colHeights) + 2 * spacing;
-  return { canvasWidth, canvasHeight, items };
+  const baseCanvasWidth = colWidths.reduce((a, b) => a + b, 0) + 2 * spacing;
+  const baseCanvasHeight = Math.max(...colHeights) + 2 * spacing;
+
+  if (!justify || n === 0) {
+    return { canvasWidth: baseCanvasWidth, canvasHeight: baseCanvasHeight, items };
+  }
+
+  const maxColHeight = Math.max(...colHeights, 0);
+  const colItems: number[][] = Array.from({ length: cols }, () => []);
+  items.forEach((_it, idx) => colItems[itemCols[idx]].push(idx));
+
+  const colMaxW: number[] = Array(cols).fill(0);
+  const newItems: Partial<LayoutItem>[] = Array(n);
+
+  for (let c = 0; c < cols; c++) {
+    const indices = colItems[c];
+    if (indices.length === 0) continue;
+    const gaps = Math.max(0, indices.length - 1) * spacing;
+    const totalH = indices.reduce((sum, idx) => sum + items[idx].h, 0);
+    const factor = totalH > 0 ? (maxColHeight - gaps) / totalH : 1;
+
+    let yCursor = spacing;
+    for (const idx of indices) {
+      const src = items[idx];
+      const w = src.w * factor;
+      const h = src.h * factor;
+      newItems[idx] = { w, h, y: yCursor };
+      yCursor += h + spacing;
+      colMaxW[c] = Math.max(colMaxW[c], w);
+    }
+  }
+
+  const colOffsets: number[] = [];
+  let xCursor = spacing;
+  for (let c = 0; c < cols; c++) {
+    colOffsets[c] = xCursor;
+    xCursor += (colMaxW[c] || 0) + spacing;
+  }
+
+  const justifiedItems: LayoutItem[] = items.map((item, idx) => {
+    const col = itemCols[idx];
+    const ni = newItems[idx]!;
+    const colWidth = colMaxW[col] || item.w;
+    const x = colOffsets[col] + (colWidth - ni.w!) / 2;
+    return {
+      x,
+      y: ni.y!,
+      w: ni.w!,
+      h: ni.h!,
+      imageIndex: item.imageIndex,
+    };
+  });
+
+  const canvasWidth = Math.max(xCursor, baseCanvasWidth);
+  const canvasHeight = Math.max(maxColHeight + spacing, baseCanvasHeight);
+
+  return { canvasWidth, canvasHeight, items: justifiedItems };
 }
 
 // Horizontal masonry: assigns images to the shortest row (lane)
@@ -799,7 +857,8 @@ function layoutLanes(
   loadedImgs: HTMLImageElement[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
-  fit: boolean = false
+  fit: boolean = false,
+  justify: boolean = false
 ): LayoutResult {
   const n = loadedImgs.length;
   if (n === 0) return { canvasWidth: 0, canvasHeight: 0, items: [] };
@@ -808,6 +867,7 @@ function layoutLanes(
   const assignments: { i: number; row: number }[] = [];
   const rowHeights = Array(rows).fill(0);
   const rowWidths = Array(rows).fill(0);
+  const itemRows: number[] = Array(n);
 
   // First pass: assign items to rows with least current width; track row max heights
   for (let i = 0; i < n; i++) {
@@ -816,6 +876,7 @@ function layoutLanes(
       if (rowWidths[r] < rowWidths[targetRow]) targetRow = r;
     }
     assignments.push({ i, row: targetRow });
+    itemRows[i] = targetRow;
     const heightCandidate = sizes[i].h;
     rowHeights[targetRow] = Math.max(rowHeights[targetRow], heightCandidate);
     // optimistic width tracking for tie-breaking; precise widths handled in second pass
@@ -844,17 +905,71 @@ function layoutLanes(
     laneWidths[row] += w + spacing;
   }
 
-  const canvasWidth = Math.max(...laneWidths, 0) + spacing;
-  const canvasHeight = yCursor;
+  const baseCanvasWidth = Math.max(...laneWidths, 0) + spacing;
+  const baseCanvasHeight = yCursor;
 
-  return { canvasWidth, canvasHeight, items };
+  if (!justify) {
+    return { canvasWidth: baseCanvasWidth, canvasHeight: baseCanvasHeight, items };
+  }
+
+  const maxRowWidth = Math.max(...laneWidths, 0);
+  const rowItems: number[][] = Array.from({ length: rows }, () => []);
+  items.forEach((_it, idx) => rowItems[itemRows[idx]].push(idx));
+
+  const rowMaxH: number[] = Array(rows).fill(0);
+  const newItems: Partial<LayoutItem>[] = Array(n);
+
+  for (let r = 0; r < rows; r++) {
+    const indices = rowItems[r];
+    if (indices.length === 0) continue;
+    const gaps = indices.length * spacing;
+    const totalW = indices.reduce((sum, idx) => sum + items[idx].w, 0);
+    const factor = totalW > 0 ? (maxRowWidth - gaps) / totalW : 1;
+
+    let xCursor = spacing;
+    for (const idx of indices) {
+      const src = items[idx];
+      const w = src.w * factor;
+      const h = src.h * factor;
+      newItems[idx] = { w, h, x: xCursor };
+      xCursor += w + spacing;
+      rowMaxH[r] = Math.max(rowMaxH[r], h);
+    }
+  }
+
+  const rowOffsetsJustified: number[] = [];
+  let yCursorJustified = spacing;
+  for (let r = 0; r < rows; r++) {
+    rowOffsetsJustified[r] = yCursorJustified;
+    yCursorJustified += (rowMaxH[r] || 0) + spacing;
+  }
+
+  const justifiedItems: LayoutItem[] = items.map((item, idx) => {
+    const row = itemRows[idx];
+    const ni = newItems[idx]!;
+    const rowHeight = rowMaxH[row] || item.h;
+    const y = rowOffsetsJustified[row] + (rowHeight - ni.h!) / 2;
+    return {
+      x: ni.x!,
+      y,
+      w: ni.w!,
+      h: ni.h!,
+      imageIndex: item.imageIndex,
+    };
+  });
+
+  const canvasWidth = Math.max(maxRowWidth + spacing, baseCanvasWidth);
+  const canvasHeight = Math.max(yCursorJustified, baseCanvasHeight);
+
+  return { canvasWidth, canvasHeight, items: justifiedItems };
 }
 
 // Maximal rectangles bin-packing: place images in any available gap, splitting gaps as needed
 // Blackpawn binary tree rectangle packing algorithm
 function layoutPacked(
   sizes: { w: number, h: number }[],
-  spacing: number = 0
+  spacing: number = 0,
+  justify: boolean = false
 ): LayoutResult {
   // Estimate bin width and height
   const totalArea = sizes.reduce((a, s) => a + s.w * s.h, 0);
@@ -889,16 +1004,21 @@ function layoutPacked(
     }
   }
 
+  // Pack images largest-first to reduce fragmentation
+  const order = sizes.map((s, i) => ({ i, w: s.w, h: s.h, key: Math.max(s.w, s.h), area: s.w * s.h }))
+    .sort((a, b) => b.key - a.key || b.area - a.area);
+
   // Try to pack all images, grow bin if needed
   const placements = Array(sizes.length);
   let success = false;
   let growTries = 0;
+  let root: Node | null = null;
   while (!success && growTries < 10) {
     // Reset tree
-    const root = makeNode(spacing, spacing, binW - 2 * spacing, binH - 2 * spacing);
+    root = makeNode(spacing, spacing, binW - 2 * spacing, binH - 2 * spacing);
     let failed = false;
-    for (let i = 0; i < sizes.length; ++i) {
-      const { w, h } = sizes[i];
+    for (let k = 0; k < order.length; ++k) {
+      const { w, h, i } = order[k];
       const pos = insert(root, w, h, i);
       if (!pos) {
         failed = true;
@@ -923,7 +1043,106 @@ function layoutPacked(
     h: size.h,
     imageIndex: i
   }));
-  return { canvasWidth: binW, canvasHeight: binH, items };
+  if (!justify || !root) return { canvasWidth: binW, canvasHeight: binH, items };
+
+  // Recursively scale each occupied node subtree to fill its region while preserving spacing boundaries
+  function justifyNode(node: Node): { minX: number, maxX: number, minY: number, maxY: number } | null {
+    // Post-order: collect child boxes and indices
+    const childBBoxes: Array<{ minX: number, maxX: number, minY: number, maxY: number }> = [];
+    const childIndices: number[] = [];
+    const rightBox = node.right ? justifyNode(node.right) : null;
+    const downBox = node.down ? justifyNode(node.down) : null;
+    if (rightBox) childBBoxes.push(rightBox);
+    if (downBox) childBBoxes.push(downBox);
+    if (node.right && node.right.imgIdx !== null) childIndices.push(node.right.imgIdx);
+    if (node.down && node.down.imgIdx !== null) childIndices.push(node.down.imgIdx);
+
+    if (node.imgIdx !== null) childIndices.push(node.imgIdx);
+
+    const selfBox = node.imgIdx !== null ? (() => {
+      const it = items[node.imgIdx];
+      return { minX: it.x, maxX: it.x + it.w, minY: it.y, maxY: it.y + it.h };
+    })() : null;
+
+    const bbox = [...childBBoxes, ...(selfBox ? [selfBox] : [])].reduce<{ minX: number, maxX: number, minY: number, maxY: number } | null>((acc, b) => {
+      if (!acc) return { ...b };
+      return {
+        minX: Math.min(acc.minX, b.minX),
+        maxX: Math.max(acc.maxX, b.maxX),
+        minY: Math.min(acc.minY, b.minY),
+        maxY: Math.max(acc.maxY, b.maxY),
+      };
+    }, null);
+
+    if (!bbox) return null;
+
+    // If this subtree has exactly one image, stretch it to fill the node region
+    const totalImages = childIndices.length;
+    if (totalImages === 1 && node.imgIdx !== null) {
+      const idx = node.imgIdx;
+      items[idx] = {
+        ...items[idx],
+        x: node.x,
+        y: node.y,
+        w: node.w,
+        h: node.h,
+      };
+      return { minX: node.x, maxX: node.x + node.w, minY: node.y, maxY: node.y + node.h };
+    }
+
+    const width = bbox.maxX - bbox.minX;
+    const height = bbox.maxY - bbox.minY;
+    const scaleX = width > 0 ? node.w / width : 1;
+    const scaleY = height > 0 ? node.h / height : 1;
+
+    function applyScale(n: Node) {
+      if (n.imgIdx !== null) {
+        const it = items[n.imgIdx];
+        items[n.imgIdx] = {
+          ...it,
+          x: node.x + (it.x - bbox.minX) * scaleX,
+          y: node.y + (it.y - bbox.minY) * scaleY,
+          w: it.w * scaleX,
+          h: it.h * scaleY,
+        };
+      }
+      if (n.right) applyScale(n.right);
+      if (n.down) applyScale(n.down);
+    }
+
+    applyScale(node);
+    // Return the actual occupied bbox after scaling, not the full node, so ancestors can expand if needed
+    const scaledMinX = node.x + (bbox.minX - bbox.minX) * scaleX;
+    const scaledMaxX = node.x + (bbox.maxX - bbox.minX) * scaleX;
+    const scaledMinY = node.y + (bbox.minY - bbox.minY) * scaleY;
+    const scaledMaxY = node.y + (bbox.maxY - bbox.minY) * scaleY;
+    return { minX: scaledMinX, maxX: scaledMaxX, minY: scaledMinY, maxY: scaledMaxY };
+  }
+
+  // First pass: recursively fill each node region
+  const bboxAfter = justifyNode(root);
+
+  // Second pass: ensure the whole occupied bbox fills the interior of the bin (preserve outer spacing)
+  const occMinX = Math.min(...items.map(it => it.x), spacing);
+  const occMaxX = Math.max(...items.map(it => it.x + it.w), spacing);
+  const occMinY = Math.min(...items.map(it => it.y), spacing);
+  const occMaxY = Math.max(...items.map(it => it.y + it.h), spacing);
+  const occW = occMaxX - occMinX;
+  const occH = occMaxY - occMinY;
+  const targetW = binW - spacing * 2;
+  const targetH = binH - spacing * 2;
+  const scaleX = occW > 0 ? targetW / occW : 1;
+  const scaleY = occH > 0 ? targetH / occH : 1;
+
+  const globallyScaled = items.map(it => ({
+    x: spacing + (it.x - occMinX) * scaleX,
+    y: spacing + (it.y - occMinY) * scaleY,
+    w: it.w * scaleX,
+    h: it.h * scaleY,
+    imageIndex: it.imageIndex,
+  }));
+
+  return { canvasWidth: binW, canvasHeight: binH, items: globallyScaled };
 }
 
 // Radial-masonry, constraint-driven greedy packing for organic collage

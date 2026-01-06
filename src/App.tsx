@@ -113,6 +113,7 @@ export default function App() {
   const [scale, setScale] = useState(100);
   const [normalizeSize, setNormalizeSize] = useState(true);
   const [fit, setFit] = useState(true);
+  const [justify, setJustify] = useState(true);
   const [jitterEnabled, setJitterEnabled] = useState(false);
   const [jitterPosition, setJitterPosition] = useState(10);
   const [jitterSize, setJitterSize] = useState(10);
@@ -225,7 +226,8 @@ export default function App() {
   const visibleImages = useMemo(() => images.filter(img => !img.hidden), [images]);
 
   // Determine which layouts support the Fit option
-  const supportsFit = ['grid', 'masonry', 'lanes', 'single-row', 'single-column', 'squarified'].includes(layout);
+  const supportsFit = ['grid', 'packed', 'masonry', 'lanes', 'single-row', 'single-column', 'squarified'].includes(layout);
+  const supportsJustify = ['packed', 'masonry', 'lanes'].includes(layout);
 
   return (
     <div className="w-full min-h-screen bg-neutral-900 text-white flex flex-col">
@@ -513,6 +515,12 @@ export default function App() {
                       <Switch checked={fit} onCheckedChange={setFit} />
                     </label>
                   )}
+                  {supportsJustify && (
+                    <label className="flex items-center justify-between text-xs font-medium">
+                      <span>Justify</span>
+                      <Switch checked={justify} onCheckedChange={setJustify} />
+                    </label>
+                  )}
                 </div>
 
                 <ToggleSection label="Jitter" enabled={jitterEnabled} onToggle={setJitterEnabled}>
@@ -781,6 +789,7 @@ export default function App() {
                   layout={layout}
                   spacing={spacing}
                   fit={fit}
+                  justify={supportsJustify ? justify : false}
                   jitterPosition={jitterEnabled ? jitterPosition : 0}
                   jitterSize={jitterEnabled ? jitterSize : 0}
                   jitterRotation={jitterEnabled ? jitterRotation : 0}
@@ -913,6 +922,12 @@ export default function App() {
                       <label className="flex items-center justify-between text-xs font-medium">
                         <span>Fit</span>
                         <Switch checked={fit} onCheckedChange={setFit} />
+                      </label>
+                    )}
+                    {supportsJustify && (
+                      <label className="flex items-center justify-between text-xs font-medium">
+                        <span>Justify</span>
+                        <Switch checked={justify} onCheckedChange={setJustify} />
                       </label>
                     )}
                   </div>
