@@ -6,7 +6,7 @@ import { hashString, mulberry32 } from '@/lib/utils';
 export type LayoutType = 'grid' | 'packed' | 'masonry' | 'lanes' | 'single-column' | 'single-row' | 'cluster' | 'squarified';
 
 export interface ComposeImageItem {
-  id?: string;
+  id: string;
   src: string;
   file?: File;
   hidden?: boolean;

@@ -11,6 +11,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ImageComposer, type ComposeImageItem, type LayoutType } from './ImageComposer';
 import { ColorSwatch } from './components/ColorSwatch';
 import { ToggleSection } from './components/ToggleSection';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const SIDEBAR_TABS = [
   { key: 'images', icon: <ImagePlus size={20} />, label: 'Images' },
@@ -463,6 +466,9 @@ export default function App() {
                     images={images}
                     onToggleHide={idx => setImages(prev => prev.map((im, i) => i === idx ? { ...im, hidden: !im.hidden } : im))}
                     onRemove={idx => setImages(prev => prev.filter((_, i) => i !== idx))}
+                    onReorder={(fromIndex, toIndex) => {
+                      setImages(prev => arrayMove(prev, fromIndex, toIndex));
+                    }}
                     size="large"
                   />
                 </div>
@@ -877,6 +883,9 @@ export default function App() {
                     images={images}
                     onToggleHide={idx => setImages(prev => prev.map((im, i) => i === idx ? { ...im, hidden: !im.hidden } : im))}
                     onRemove={idx => setImages(prev => prev.filter((_, i) => i !== idx))}
+                    onReorder={(fromIndex, toIndex) => {
+                      setImages(prev => arrayMove(prev, fromIndex, toIndex));
+                    }}
                     size="small"
                   />
                 </div>
@@ -1170,49 +1179,126 @@ type ImageTileListProps = {
   images: ComposeImageItem[];
   onToggleHide: (idx: number) => void;
   onRemove: (idx: number) => void;
+  onReorder: (fromIndex: number, toIndex: number) => void;
   size: 'large' | 'small';
 };
-function ImageTileList({ images, onToggleHide, onRemove, size }: ImageTileListProps) {
-  if (images.length === 0) return null;
+
+type SortableImageTileProps = {
+  img: ComposeImageItem;
+  idx: number;
+  size: 'large' | 'small';
+  onToggleHide: (idx: number) => void;
+  onRemove: (idx: number) => void;
+};
+
+function SortableImageTile({ img, idx, size, onToggleHide, onRemove }: SortableImageTileProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: img.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition: isDragging ? 'none' : transition,
+  };
+
   return (
-    <div className={size === 'large' ? 'flex flex-row flex-wrap gap-3' : 'flex flex-row gap-2 overflow-x-auto pb-2'}>
-      {images.map((img, idx) => (
-        <div
-          key={img.id}
-          className={size === 'large'
-            ? 'relative min-w-[100px] max-w-[140px] flex flex-col items-center bg-neutral-800 rounded-lg shadow-md p-2'
-            : 'relative min-w-[72px] max-w-[90px] flex flex-col items-center bg-neutral-800 rounded-lg shadow-md p-1 mx-1'}
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={size === 'large'
+        ? `relative min-w-[100px] max-w-[140px] flex flex-col items-center bg-neutral-800 rounded-lg shadow-md p-2 cursor-move transition-all ${isDragging ? 'opacity-50 scale-95 z-50' : ''}`
+        : `relative min-w-[72px] max-w-[90px] flex flex-col items-center bg-neutral-800 rounded-lg shadow-md p-1 mx-1 cursor-move transition-all ${isDragging ? 'opacity-50 scale-95 z-50' : ''}`}
+    >
+      <img
+        src={img.src}
+        alt={`Image ${idx + 1}`}
+        className={size === 'large'
+          ? `w-[80px] h-[80px] object-cover rounded-md mb-1 bg-neutral-900 ${img.hidden ? 'opacity-30 grayscale' : ''}`
+          : `w-[60px] h-[60px] object-cover rounded-md mb-1 bg-neutral-900 ${img.hidden ? 'opacity-30 grayscale' : ''}`}
+      />
+      <div className="flex flex-row items-center gap-1 w-full justify-center">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-neutral-400"
+          title={img.hidden ? 'Show image' : 'Hide image'}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleHide(idx);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
         >
-          <img
-            src={img.src}
-            alt={`Image ${idx + 1}`}
-            className={size === 'large'
-              ? `w-[80px] h-[80px] object-cover rounded-md mb-1 bg-neutral-900 ${img.hidden ? 'opacity-30 grayscale' : ''}`
-              : `w-[60px] h-[60px] object-cover rounded-md mb-1 bg-neutral-900 ${img.hidden ? 'opacity-30 grayscale' : ''}`}
-          />
-          <div className="flex flex-row items-center gap-1 w-full justify-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-neutral-400"
-              title={img.hidden ? 'Show image' : 'Hide image'}
-              onClick={() => onToggleHide(idx)}
-            >
-              {img.hidden ? (size === 'large' ? <EyeOff size={18} /> : <EyeOff size={16} />) : (size === 'large' ? <Eye size={18} /> : <Eye size={16} />)}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-red-400"
-              title="Remove image"
-              onClick={() => onRemove(idx)}
-            >
-              {size === 'large' ? <X size={18} /> : <X size={16} />}
-            </Button>
-          </div>
-        </div>
-      ))}
+          {img.hidden ? (size === 'large' ? <EyeOff size={18} /> : <EyeOff size={16} />) : (size === 'large' ? <Eye size={18} /> : <Eye size={16} />)}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-red-400"
+          title="Remove image"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(idx);
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {size === 'large' ? <X size={18} /> : <X size={16} />}
+        </Button>
+      </div>
     </div>
+  );
+}
+
+function ImageTileList({ images, onToggleHide, onRemove, onReorder, size }: ImageTileListProps) {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = images.findIndex((img) => img.id === active.id);
+      const newIndex = images.findIndex((img) => img.id === over.id);
+      onReorder(oldIndex, newIndex);
+    }
+  };
+
+  if (images.length === 0) return null;
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext
+        items={images.map((img) => img.id)}
+        strategy={rectSortingStrategy}
+      >
+        <div className={size === 'large' ? 'flex flex-row flex-wrap gap-3' : 'flex flex-row gap-2 overflow-x-auto pb-2'}>
+          {images.map((img, idx) => (
+            <SortableImageTile
+              key={img.id}
+              img={img}
+              idx={idx}
+              size={size}
+              onToggleHide={onToggleHide}
+              onRemove={onRemove}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 }
 
