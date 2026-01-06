@@ -19,12 +19,14 @@ export interface StyleOptions {
 
 export type DrawingOptions = StyleOptions & LayoutOptions;
 
+type DrawingContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
 // --- Drawing functions ---
 export function drawComposition(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawingContext,
   layout: LayoutResult,
   images: ComposeImageItem[],
-  loadedImgs: HTMLImageElement[],
+  loadedImgs: ImageBitmap[],
   {
     fit,
     backgroundColor = 'transparent',
@@ -138,7 +140,7 @@ export function drawComposition(
 
 // Helper to draw shape path (rounded rectangle or simple rectangle)
 export function drawShapePath(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawingContext,
   x: number,
   y: number,
   w: number,
@@ -174,7 +176,7 @@ export function drawShapePath(
 
 // Pixel processor functions
 export function applyGrain(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawingContext,
   x: number,
   y: number,
   w: number,
@@ -208,7 +210,7 @@ export function applyGrain(
   ctx.restore();
 }
 
-export function applyVignette(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, intensity: number, blendMode: string = 'overlay') {
+export function applyVignette(ctx: DrawingContext, x: number, y: number, w: number, h: number, intensity: number, blendMode: string = 'overlay') {
   ctx.save();
 
   const centerX = x + w / 2;
@@ -228,7 +230,7 @@ export function applyVignette(ctx: CanvasRenderingContext2D, x: number, y: numbe
   ctx.restore();
 }
 
-export function applySharpen(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, intensity: number) {
+export function applySharpen(ctx: DrawingContext, x: number, y: number, w: number, h: number, intensity: number) {
   const strength = intensity / 100;
   const imageData = ctx.getImageData(x, y, w, h);
   const data = imageData.data;
@@ -269,10 +271,10 @@ export function applySharpen(ctx: CanvasRenderingContext2D, x: number, y: number
 }
 
 export function drawImage(
-  ctx: CanvasRenderingContext2D,
+  ctx: DrawingContext,
   item: LayoutItem,
   imageData: ComposeImageItem,
-  img: HTMLImageElement,
+  img: ImageBitmap,
   {
     fit,
     cornerRadiusTargetPx = 0,
@@ -293,26 +295,26 @@ export function drawImage(
 ) {
   const { x, y, w, h } = item;
 
-  const srcAspect = img.naturalWidth / img.naturalHeight;
+  const srcAspect = img.width / img.height;
   const dstAspect = w / h;
 
   let drawWidth = w;
   let drawHeight = h;
   let sx = 0;
   let sy = 0;
-  let sw = img.naturalWidth;
-  let sh = img.naturalHeight;
+  let sw = img.width;
+  let sh = img.height;
 
   if (fit) {
     // Cover: crop source to fill destination
     if (dstAspect > srcAspect) {
-      sw = img.naturalWidth;
+      sw = img.width;
       sh = sw / dstAspect;
-      sy = (img.naturalHeight - sh) / 2;
+      sy = (img.height - sh) / 2;
     } else {
-      sh = img.naturalHeight;
+      sh = img.height;
       sw = sh * dstAspect;
-      sx = (img.naturalWidth - sw) / 2;
+      sx = (img.width - sw) / 2;
     }
   } else {
     // Contain: letterbox destination to preserve source aspect

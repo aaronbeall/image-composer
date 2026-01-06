@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
-import { drawComposition, type StyleOptions } from './lib/draw';
+import type { StyleOptions } from './lib/draw';
 import { layoutComposition, type ComposeImageItem, type LayoutOptions, type LayoutType } from './lib/layout';
 
 interface ImageComposerProps extends LayoutOptions, StyleOptions {
@@ -11,39 +11,96 @@ interface ImageComposerProps extends LayoutOptions, StyleOptions {
   style?: React.CSSProperties;
 }
 
-// Utility to load a single image (used with caching below)
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new window.Image();
-    image.onload = () => resolve(image);
-    image.onerror = reject;
-    image.src = src;
+// Utility to load an image and convert to ImageBitmap
+function loadBitmap(src: string) {
+  return new Promise<ImageBitmap>((resolve, reject) => {
+    const imgElement = new window.Image();
+    imgElement.onload = async () => {
+      try {
+        const bitmap = await createImageBitmap(imgElement);
+        resolve(bitmap);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    imgElement.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+    imgElement.src = src;
   });
 }
 
 
 export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, jitterPosition = 0, jitterSize = 0, jitterRotation = 0, justify = false, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', effects = [], shape = 'rect', style, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
-  const [loadedImages, setLoadedImages] = useState<HTMLImageElement[] | null>(null);
-  // Phase 1: load images (with caching)
+  const imageBitmapCacheRef = useRef<Map<string, ImageBitmap>>(new Map());
+  const workerRef = useRef<Worker | null>(null);
+  const [loadedImageBitmaps, setLoadedImageBitmaps] = useState<ImageBitmap[] | null>(null);
+  const [isRendering, setIsRendering] = useState(false);
+
+  // Initialize web worker
+  useEffect(() => {
+    const drawWorker = new Worker(
+      new URL('./lib/draw.worker.ts?worker', import.meta.url),
+      { type: 'module' }
+    );
+
+    drawWorker.onmessage = (event) => {
+      if (event.data.type === 'start') {
+        setIsRendering(true);
+      } else if (event.data.type === 'complete') {
+        const { canvasWidth, canvasHeight, imageBitmap } = event.data;
+        const canvas = canvasRef.current;
+        if (canvas && imageBitmap) {
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
+
+          // Draw the received ImageBitmap onto the visible canvas
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(imageBitmap, 0, 0);
+          }
+
+          onUpdate({
+            width: canvasWidth,
+            height: canvasHeight,
+            getImageData: () => canvas.toDataURL('image/png'),
+            getImageBlob: () => new Promise(resolve => canvas.toBlob(resolve, 'image/png')),
+          });
+        }
+        setIsRendering(false);
+      } else if (event.data.type === 'error') {
+        console.error('Draw worker error:', event.data.error);
+        setIsRendering(false);
+      }
+    };
+
+    workerRef.current = drawWorker;
+
+    return () => {
+      drawWorker.terminate();
+    };
+  }, [onUpdate]);
+
+  // Phase 1: load and convert images to ImageBitmap (with caching)
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       if (!images.length) {
-        setLoadedImages([]);
+        setLoadedImageBitmaps([]);
         return;
       }
-      const cache = imageCacheRef.current;
-      const loadedImgs = await Promise.all(images.map(async img => {
-        const cached = cache.get(img.src);
+      const bitmapCache = imageBitmapCacheRef.current;
+
+      const bitmaps = await Promise.all(images.map(async img => {
+        const cached = bitmapCache.get(img.src);
         if (cached) return cached;
-        const loaded = await loadImage(img.src);
-        cache.set(img.src, loaded);
-        return loaded;
+
+        const bitmap = await loadBitmap(img.src);
+        bitmapCache.set(img.src, bitmap);
+        return bitmap;
       }));
+
       if (cancelled) return;
-      setLoadedImages(loadedImgs);
+      setLoadedImageBitmaps(bitmaps);
     };
     load();
     return () => { cancelled = true; };
@@ -53,7 +110,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
   const layoutResult = useMemo(() => {
     return layoutComposition({
       images,
-      loadedImages,
+      loadedImages: loadedImageBitmaps,
       normalizeSize,
       layout,
       spacing,
@@ -61,55 +118,128 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       scale,
       justify
     });
-  }, [loadedImages, images, normalizeSize, layout, spacing, fit, scale, justify]);
+  }, [loadedImageBitmaps, images, normalizeSize, layout, spacing, fit, scale, justify]);
 
-  // Phase 3: draw composition when layout or style changes
+  // Phase 3: draw composition using worker when layout or style changes
   useEffect(() => {
-    if (!layoutResult || !loadedImages || loadedImages.length !== images.length) return;
+    if (!layoutResult || !loadedImageBitmaps || loadedImageBitmaps.length !== images.length) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    drawComposition(ctx, layoutResult, images, loadedImages, {
-      fit,
-      backgroundColor,
-      cornerRadius,
-      borderEnabled,
-      borderWidth,
-      borderColor,
-      shadowEnabled,
-      shadowAngle,
-      shadowDistance,
-      shadowBlur,
-      shadowColor,
-      effects,
-      jitterPosition,
-      jitterSize,
-      jitterRotation,
-      shape,
-    });
 
-    onUpdate({
-      width: canvas.width,
-      height: canvas.height,
-      getImageData: () => canvas.toDataURL('image/png'),
-      getImageBlob: () => new Promise(resolve => canvas.toBlob(resolve, 'image/png')),
-    });
-  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor, effects, jitterPosition, jitterSize, jitterRotation, shape, onUpdate]);
+    // Check if browser supports OffscreenCanvas
+    if (typeof OffscreenCanvas === 'undefined' || !workerRef.current) {
+      console.error('OffscreenCanvas not supported');
+      return;
+    }
+
+    // Create an offscreen canvas with the same dimensions as the layout result
+    const offscreenCanvas = new OffscreenCanvas(
+      layoutResult.canvasWidth,
+      layoutResult.canvasHeight
+    );
+
+    // Send work to worker (worker will send 'renderingStarted' message)
+    try {
+      workerRef.current.postMessage({
+        type: 'draw',
+        offscreenCanvas,
+        layoutResult,
+        images,
+        loadedImgs: loadedImageBitmaps,
+        options: {
+          fit,
+          backgroundColor,
+          cornerRadius,
+          borderEnabled,
+          borderWidth,
+          borderColor,
+          shadowEnabled,
+          shadowAngle,
+          shadowDistance,
+          shadowBlur,
+          shadowColor,
+          effects,
+          jitterPosition,
+          jitterSize,
+          jitterRotation,
+          shape,
+        },
+      }, [offscreenCanvas]); // Transfer OffscreenCanvas
+    } catch (error) {
+      console.error('Error sending message to worker:', error);
+    }
+  }, [
+    layoutResult,
+    loadedImageBitmaps,
+    images,
+    fit,
+    backgroundColor,
+    cornerRadius,
+    borderEnabled,
+    borderWidth,
+    borderColor,
+    shadowEnabled,
+    shadowAngle,
+    shadowDistance,
+    shadowBlur,
+    shadowColor,
+    effects,
+    jitterPosition,
+    jitterSize,
+    jitterRotation,
+    shape,
+  ]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: '100%',
-        height: '100%',
-        border: '1px solid #444',
-        background: '#222',
-        display: 'block',
-        objectFit: 'contain',
-        ...style,
-      }}
-    />
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          border: '1px solid #444',
+          background: '#222',
+          display: 'block',
+          objectFit: 'contain',
+          ...style,
+        }}
+      />
+      {isRendering && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 10px',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            borderRadius: '6px',
+            fontSize: '12px',
+            color: 'rgba(255, 255, 255, 0.9)',
+            zIndex: 50,
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-block',
+              width: '14px',
+              height: '14px',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
+              borderTop: '2px solid rgba(139, 92, 246, 1)',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+            }}
+          />
+          <style>{`
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
+    </div>
   );
 };

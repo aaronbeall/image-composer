@@ -24,10 +24,10 @@ export interface LayoutOptions {
 }
 
 type NormalizeMode = 'both' | 'width' | 'height';
-function getNormalizedSize(imgs: HTMLImageElement[], mode: NormalizeMode = 'both'): { width: number, height: number } {
+function getNormalizedSize(imgs: ImageBitmap[], mode: NormalizeMode = 'both'): { width: number, height: number } {
   // Find the median width and/or height
-  const ws = imgs.map(i => i.naturalWidth);
-  const hs = imgs.map(i => i.naturalHeight);
+  const ws = imgs.map(i => i.width);
+  const hs = imgs.map(i => i.height);
   ws.sort((a, b) => a - b);
   hs.sort((a, b) => a - b);
   const mid = Math.floor(imgs.length / 2);
@@ -65,7 +65,7 @@ export function layoutComposition({
   scale = 1,
   justify = false,
 }: {
-  loadedImages: HTMLImageElement[] | null;
+  loadedImages: ImageBitmap[] | null;
   images: ComposeImageItem[];
   normalizeSize: boolean;
   layout: LayoutType;
@@ -87,7 +87,7 @@ export function layoutComposition({
 
   // Compute sizes (after normalization if applicable)
   const sizes = loadedImages.map(img => {
-    let w = img.naturalWidth, h = img.naturalHeight;
+    let w = img.width, h = img.height;
     if (normalizeSize) {
       if (layout === 'single-row' && norm.height) {
         w = Math.round(norm.height * (w / h));
@@ -172,7 +172,7 @@ export function layoutComposition({
 
 // --- Layout functions ---
 export function layoutSingleRow(
-  loadedImgs: HTMLImageElement[],
+  loadedImgs: ImageBitmap[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
   fit: boolean = false
@@ -184,7 +184,7 @@ export function layoutSingleRow(
   if (fit) {
     // All images get height = maxHeight - 2*spacing, width by aspect ratio
     const rowH = maxHeight - 2 * spacing;
-    scaledWidths = loadedImgs.map(img => Math.round(rowH * (img.naturalWidth / img.naturalHeight)));
+    scaledWidths = loadedImgs.map(img => Math.round(rowH * (img.width / img.height)));
     totalWidth = scaledWidths.reduce((sum, w, i) => sum + w + (i > 0 ? spacing : 0), 0) + 2 * spacing;
   } else {
     totalWidth = sizes.reduce((sum, s, i) => sum + s.w + (i > 0 ? spacing : 0), 0) + 2 * spacing;
@@ -208,7 +208,7 @@ export function layoutSingleRow(
 }
 
 export function layoutSingleColumn(
-  loadedImgs: HTMLImageElement[],
+  loadedImgs: ImageBitmap[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
   fit: boolean = false
@@ -220,7 +220,7 @@ export function layoutSingleColumn(
   if (fit) {
     // All images get width = maxWidth - 2*spacing, height by aspect ratio
     const colW = maxWidth - 2 * spacing;
-    scaledHeights = loadedImgs.map(img => Math.round(colW * (img.naturalHeight / img.naturalWidth)));
+    scaledHeights = loadedImgs.map(img => Math.round(colW * (img.height / img.width)));
     totalHeight = scaledHeights.reduce((sum, h, i) => sum + h + (i > 0 ? spacing : 0), 0) + 2 * spacing;
   } else {
     totalHeight = sizes.reduce((sum, s, i) => sum + s.h + (i > 0 ? spacing : 0), 0) + 2 * spacing;
@@ -250,7 +250,7 @@ export function layoutSingleColumn(
 }
 
 export function layoutGrid(
-  loadedImgs: HTMLImageElement[],
+  loadedImgs: ImageBitmap[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
   fit: boolean = false,
@@ -323,7 +323,7 @@ export function layoutGrid(
 }
 
 export function layoutMasonry(
-  loadedImgs: HTMLImageElement[],
+  loadedImgs: ImageBitmap[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
   fit: boolean = false,
@@ -351,7 +351,7 @@ export function layoutMasonry(
     let drawW = sizes[i].w, drawH = sizes[i].h;
     if (fit) {
       drawW = w;
-      drawH = Math.round(drawW * (loadedImgs[i].naturalHeight / loadedImgs[i].naturalWidth));
+      drawH = Math.round(drawW * (loadedImgs[i].height / loadedImgs[i].width));
     }
     items.push({ x: x + spacing, y: y + spacing, w: drawW, h: drawH, imageIndex: i });
     colHeights[minCol] += drawH + (colHeights[minCol] > 0 ? spacing : 0);
@@ -418,7 +418,7 @@ export function layoutMasonry(
 
 // Horizontal masonry: assigns images to the shortest row (lane)
 export function layoutLanes(
-  loadedImgs: HTMLImageElement[],
+  loadedImgs: ImageBitmap[],
   sizes: { w: number, h: number }[],
   spacing: number = 0,
   fit: boolean = false,
@@ -460,7 +460,7 @@ export function layoutLanes(
   const items: LayoutItem[] = Array(n);
 
   for (const { i, row } of assignments) {
-    const aspect = loadedImgs[i].naturalWidth / loadedImgs[i].naturalHeight;
+    const aspect = loadedImgs[i].width / loadedImgs[i].height;
     const h = fit ? rowHeights[row] : sizes[i].h;
     const w = fit ? Math.round(h * aspect) : sizes[i].w;
     const x = spacing + laneWidths[row];
@@ -530,7 +530,7 @@ export function layoutLanes(
 
 // Bubble layout: squarify images, seed in a circle, then relax with separation + gentle clustering
 export function layoutBubble(
-  _loadedImgs: HTMLImageElement[],
+  _loadedImgs: ImageBitmap[],
   sizes: { w: number, h: number }[],
   spacing: number = 0
 ): LayoutResult {
