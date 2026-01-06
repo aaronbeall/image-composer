@@ -1,13 +1,14 @@
-
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { addAlphaToHex, cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Download, Eye, EyeOff, ImagePlus, LayoutGrid, Paintbrush, Share2, Upload, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Download, Eye, EyeOff, HelpCircle, ImagePlus, Mail, LayoutGrid, Paintbrush, Share2, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { SiPatreon, SiBuymeacoffee } from 'react-icons/si';
 import { ImageComposer, type ComposeImageItem, type LayoutType } from './ImageComposer';
 import { ColorSwatch } from './components/ColorSwatch';
 import { ToggleSection } from './components/ToggleSection';
@@ -223,6 +224,7 @@ export default function App() {
   const [effects, setEffects] = useState<Effect[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('images');
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   // Images state and drop/browse/paste logic
   const [images, setImages] = useState<ComposeImageItem[]>([]);
@@ -576,6 +578,14 @@ export default function App() {
               </button>
             )}
           </>}
+          <button
+            onClick={() => setAboutOpen(true)}
+            className="inline-flex p-2 rounded-full hover:bg-neutral-800 text-neutral-400 hover:text-indigo-400 transition"
+            title="About Image Composer"
+            aria-label="About"
+          >
+            <HelpCircle size={20} />
+          </button>
         </div>
       </header>
       {/* Main layout */}
@@ -1396,6 +1406,66 @@ export default function App() {
           </DrawerContent>
         </Drawer>
       </div>
+
+      {/* About Dialog */}
+      <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
+        <DialogContent className="sm:max-w-md bg-neutral-900 border-neutral-800">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-white">About Image Composer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-neutral-300">
+            <div>
+              <h3 className="font-semibold text-white mb-1">Created by</h3>
+              <p>
+                <a href="https://metamodernmonkey.com" target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline">
+                  MetaModernMonkey.com
+                </a>
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-white mb-1">Free to Use</h3>
+              <p>Image Composer is completely free to use. No accounts, no subscriptions, no ads. Your images are processed locally on your device and never uploaded to any server.</p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-white mb-1">Disclaimer</h3>
+              <p>Image Composer is provided as-is without warranties. While we strive for reliability and functionality, we're not liable for any damages or loss resulting from use of this tool.</p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-white mb-2">Support</h3>
+              <div className="space-y-2">
+                <a
+                  href="mailto:support@metamodernmonkey.com"
+                  className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition"
+                >
+                  <Mail size={16} />
+                  support@metamodernmonkey.com
+                </a>
+                <a
+                  href="https://buymeacoffee.com/metamodernmonkey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition"
+                >
+                  <SiBuymeacoffee size={16} />
+                  Buy Me a Coffee
+                </a>
+                <a
+                  href="https://patreon.com/metamodernmonkey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition"
+                >
+                  <SiPatreon size={16} />
+                  Patreon
+                </a>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
