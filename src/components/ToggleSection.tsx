@@ -1,5 +1,5 @@
 import { Checkbox } from '@/components/ui/checkbox';
-import { ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 type ToggleSectionProps = {
   label: string;
