@@ -434,10 +434,10 @@ export default function App() {
         onChange={handleFileChange}
       />
       {/* Header */}
-      <header className="fixed top-0 left-0 w-full h-14 bg-neutral-900/95 flex items-center justify-between z-50 border-b border-neutral-800 shadow-md px-4 lg:px-8">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="lg:hidden"><Menu size={22} /></Button>
-          <span className="font-bold text-xl select-none">Image Composer</span>
+      <header className="fixed top-0 left-0 w-full h-14 bg-neutral-900/95 flex items-center justify-between z-50 border-b border-neutral-800 shadow-md px-4 lg:px-6">
+        <div className="flex items-center gap-2.5">
+          <img src="/src/assets/logo.svg" alt="Image Composer" className="w-8 h-8" />
+          <span className="font-bold text-xl select-none bg-gradient-to-r from-indigo-400 via-indigo-300 to-indigo-400 bg-clip-text text-transparent">Image Composer</span>
         </div>
         <div className="flex items-center gap-2">
           {images.length > 0 && <>
