@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Downlo
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SiPatreon, SiBuymeacoffee } from 'react-icons/si';
 import logoSvg from '@/assets/logo.svg';
-import { ImageComposer, type ComposeImageItem, type LayoutType } from './ImageComposer';
+import { ImageComposer } from './ImageComposer';
 import { ColorSwatch } from './components/ColorSwatch';
 import { ColorValue } from './components/ColorValue';
 import { ToggleSection } from './components/ToggleSection';
@@ -19,6 +19,7 @@ import type { Effect } from '@/types';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import type { ComposeImageItem, LayoutType } from './lib/layout';
 
 const NAV_ITEMS = [
   { key: 'images', icon: <ImagePlus size={20} />, label: 'Images' },
