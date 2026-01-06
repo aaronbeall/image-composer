@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { addAlphaToHex, cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Download, Eye, EyeOff, ImagePlus, LayoutGrid, Menu, Paintbrush, Share2, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ImageComposer, type LayoutType } from './ImageComposer';
+import { ImageComposer, type ComposeImageItem, type LayoutType } from './ImageComposer';
 import { ColorSwatch } from './components/ColorSwatch';
 import { ToggleSection } from './components/ToggleSection';
 
@@ -85,14 +85,6 @@ export type Effect = {
   blendMode?: BlendMode;
 };
 
-// Image item type
-type ImageItem = {
-  id: string;
-  src: string;
-  file?: File;
-  hidden?: boolean;
-};
-
 export default function App() {
   // Style controls state (for stubs)
   const [borderEnabled, setBorderEnabled] = useState(false);
@@ -110,7 +102,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('images');
 
   // Images state and drop/browse/paste logic
-  const [images, setImages] = useState<ImageItem[]>([]);
+  const [images, setImages] = useState<ComposeImageItem[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropAreaRef = useRef<HTMLDivElement>(null);
@@ -121,6 +113,10 @@ export default function App() {
   const [scale, setScale] = useState(100);
   const [normalizeSize, setNormalizeSize] = useState(true);
   const [fit, setFit] = useState(true);
+  const [jitterEnabled, setJitterEnabled] = useState(false);
+  const [jitterPosition, setJitterPosition] = useState(10);
+  const [jitterSize, setJitterSize] = useState(10);
+  const [jitterRotation, setJitterRotation] = useState(10);
   const [canvasInfo, setCanvasInfo] = useState<{ width: number; height: number; getImageData?: () => string; getImageBlob?: () => Promise<Blob | null>; }>({ width: 0, height: 0 });
   const [isSharing, setIsSharing] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -518,6 +514,48 @@ export default function App() {
                     </label>
                   )}
                 </div>
+
+                <ToggleSection label="Jitter" enabled={jitterEnabled} onToggle={setJitterEnabled}>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Position</span>
+                      <span className="text-neutral-400 text-xs">{jitterPosition}%</span>
+                    </label>
+                    <Slider
+                      value={[jitterPosition]}
+                      min={0}
+                      max={100}
+                      onValueChange={val => setJitterPosition(val[0])}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Size</span>
+                      <span className="text-neutral-400 text-xs">{jitterSize}%</span>
+                    </label>
+                    <Slider
+                      value={[jitterSize]}
+                      min={0}
+                      max={100}
+                      onValueChange={val => setJitterSize(val[0])}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="font-medium text-xs flex items-center justify-between">
+                      <span>Rotation</span>
+                      <span className="text-neutral-400 text-xs">{jitterRotation}°</span>
+                    </label>
+                    <Slider
+                      value={[jitterRotation]}
+                      min={0}
+                      max={45}
+                      onValueChange={val => setJitterRotation(val[0])}
+                      className="w-full"
+                    />
+                  </div>
+                </ToggleSection>
               </div>
             )}
             {activeTab === 'style' && (
@@ -743,6 +781,9 @@ export default function App() {
                   layout={layout}
                   spacing={spacing}
                   fit={fit}
+                  jitterPosition={jitterEnabled ? jitterPosition : 0}
+                  jitterSize={jitterEnabled ? jitterSize : 0}
+                  jitterRotation={jitterEnabled ? jitterRotation : 0}
                   scale={scale / 100}
                   backgroundColor={bgColor}
                   cornerRadius={cornerRadius}
@@ -875,6 +916,49 @@ export default function App() {
                       </label>
                     )}
                   </div>
+
+                  <fieldset className="border border-neutral-700 rounded-lg p-4 flex flex-col gap-3 mt-2">
+                    <legend className="flex items-center gap-2 text-xs font-medium px-2 -mx-2 text-neutral-200">Jitter</legend>
+                    <div className="flex flex-col gap-1">
+                      <label className="font-medium text-xs flex items-center justify-between">
+                        <span>Position</span>
+                        <span className="text-neutral-400 text-xs">{jitterPosition}%</span>
+                      </label>
+                      <Slider
+                        value={[jitterPosition]}
+                        min={0}
+                        max={100}
+                        onValueChange={val => setJitterPosition(val[0])}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="font-medium text-xs flex items-center justify-between">
+                        <span>Size</span>
+                        <span className="text-neutral-400 text-xs">{jitterSize}%</span>
+                      </label>
+                      <Slider
+                        value={[jitterSize]}
+                        min={0}
+                        max={100}
+                        onValueChange={val => setJitterSize(val[0])}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="font-medium text-xs flex items-center justify-between">
+                        <span>Rotation</span>
+                        <span className="text-neutral-400 text-xs">{jitterRotation}°</span>
+                      </label>
+                      <Slider
+                        value={[jitterRotation]}
+                        min={0}
+                        max={45}
+                        onValueChange={val => setJitterRotation(val[0])}
+                        className="w-full"
+                      />
+                    </div>
+                  </fieldset>
                 </div>
               </TabsContent>
               <TabsContent value="style">
@@ -1068,7 +1152,7 @@ export default function App() {
 // --- Reusable Components ---
 
 type ImageTileListProps = {
-  images: ImageItem[];
+  images: ComposeImageItem[];
   onToggleHide: (idx: number) => void;
   onRemove: (idx: number) => void;
   size: 'large' | 'small';

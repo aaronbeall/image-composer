@@ -1,10 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { Effect, EffectType } from './App';
+import type { Effect } from './App';
+
+import { hashString, mulberry32 } from '@/lib/utils';
 
 export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'cluster' | 'squarified';
 
 export interface ComposeImageItem {
+  id?: string;
   src: string;
+  file?: File;
+  hidden?: boolean;
   label?: string;
   description?: string;
   width?: number;
@@ -15,6 +20,9 @@ export interface LayoutOptions {
   spacing?: number; // 0-100, relative to avg image size
   fit?: boolean; // fit option for grid/masonry
   scale?: number;
+  jitterPosition?: number;
+  jitterSize?: number;
+  jitterRotation?: number;
 }
 
 export interface StyleOptions {
@@ -78,7 +86,7 @@ interface LayoutResult {
   items: LayoutItem[];
 }
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', effects = [], style, onUpdate }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, jitterPosition = 0, jitterSize = 0, jitterRotation = 0, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', effects = [], style, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const [loadedImages, setLoadedImages] = useState<HTMLImageElement[] | null>(null);
@@ -173,7 +181,27 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    drawComposition(ctx, layoutResult, images, loadedImages, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor, effects);
+    drawComposition(
+      ctx,
+      layoutResult,
+      images,
+      loadedImages,
+      fit,
+      backgroundColor,
+      cornerRadius,
+      borderEnabled,
+      borderWidth,
+      borderColor,
+      shadowEnabled,
+      shadowAngle,
+      shadowDistance,
+      shadowBlur,
+      shadowColor,
+      effects,
+      jitterPosition,
+      jitterSize,
+      jitterRotation
+    );
 
     onUpdate({
       width: canvas.width,
@@ -181,7 +209,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       getImageData: () => canvas.toDataURL('image/png'),
       getImageBlob: () => new Promise(resolve => canvas.toBlob(resolve, 'image/png')),
     });
-  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor, effects, onUpdate]);
+  }, [layoutResult, loadedImages, images, fit, backgroundColor, cornerRadius, borderEnabled, borderWidth, borderColor, shadowEnabled, shadowAngle, shadowDistance, shadowBlur, shadowColor, effects, jitterPosition, jitterSize, jitterRotation, onUpdate]);
 
   return (
     <canvas
@@ -217,7 +245,10 @@ function drawComposition(
   shadowDistance: number = 0,
   shadowBlur: number = 0,
   shadowColor: string = '#000000',
-  effects: Effect[] = []
+  effects: Effect[] = [],
+  jitterPosition: number = 0,
+  jitterSize: number = 0,
+  jitterRotation: number = 0
 ) {
   // Set canvas size
   ctx.canvas.width = layout.canvasWidth;
@@ -262,7 +293,29 @@ function drawComposition(
 
   // Draw each image
   for (const item of layout.items) {
-    drawImage(ctx, item, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadiusPx, border, dropShadow, effects);
+    const img = images[item.imageIndex];
+    const seedSource = img.id || img.src || `img-${item.imageIndex}`;
+    const rng = mulberry32(hashString(String(seedSource)) ^ item.imageIndex);
+
+    const posAmp = (Math.min(item.w, item.h) * 0.25) * (Math.max(0, jitterPosition) / 100);
+    const sizeAmp = 0.3 * (Math.max(0, jitterSize) / 100);
+    const rotAmpDeg = Math.max(0, jitterRotation);
+
+    const randSigned = (amp: number) => (rng() - 0.5) * 2 * amp;
+
+    const scale = 1 + randSigned(sizeAmp);
+    const dx = randSigned(posAmp);
+    const dy = randSigned(posAmp);
+    const rotationRad = randSigned(rotAmpDeg) * (Math.PI / 180);
+
+    const baseCx = item.x + item.w / 2;
+    const baseCy = item.y + item.h / 2;
+    const w = item.w * scale;
+    const h = item.h * scale;
+    const x = baseCx + dx - w / 2;
+    const y = baseCy + dy - h / 2;
+
+    drawImage(ctx, { ...item, x, y, w, h }, images[item.imageIndex], loadedImgs[item.imageIndex], fit, cornerRadiusPx, border, dropShadow, effects, rotationRad);
   }
 }
 
@@ -399,30 +452,53 @@ function drawImage(
   cornerRadiusPx: number = 0,
   border?: { color: string, width: number },
   dropShadow?: { color: string, offsetX: number, offsetY: number, blur: number },
-  effects: Effect[] = []
+  effects: Effect[] = [],
+  rotationRad: number = 0
 ) {
   const { x, y, w, h } = item;
 
-  let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
-  let dx = x, dy = y, dw = w, dh = h;
+  const srcAspect = img.naturalWidth / img.naturalHeight;
+  const dstAspect = w / h;
+
+  let drawWidth = w;
+  let drawHeight = h;
+  let sx = 0;
+  let sy = 0;
+  let sw = img.naturalWidth;
+  let sh = img.naturalHeight;
 
   if (fit) {
-    // Cover: scale and crop to fill tile
-    const scale = Math.max(dw / img.naturalWidth, dh / img.naturalHeight);
-    sw = dw / scale;
-    sh = dh / scale;
-    sx = (img.naturalWidth - sw) / 2;
-    sy = (img.naturalHeight - sh) / 2;
+    // Cover: crop source to fill destination
+    if (dstAspect > srcAspect) {
+      sw = img.naturalWidth;
+      sh = sw / dstAspect;
+      sy = (img.naturalHeight - sh) / 2;
+    } else {
+      sh = img.naturalHeight;
+      sw = sh * dstAspect;
+      sx = (img.naturalWidth - sw) / 2;
+    }
   } else {
-    // Contain: scale to fit inside tile and center
-    const scale = Math.min(dw / img.naturalWidth, dh / img.naturalHeight);
-    dw = img.naturalWidth * scale;
-    dh = img.naturalHeight * scale;
-    dx = x + (w - dw) / 2;
-    dy = y + (h - dh) / 2;
+    // Contain: letterbox destination to preserve source aspect
+    if (dstAspect > srcAspect) {
+      drawWidth = h * srcAspect;
+      drawHeight = h;
+    } else {
+      drawWidth = w;
+      drawHeight = w / srcAspect;
+    }
   }
 
-  // Draw shadow first if needed (before clipping)
+  const drawX = x + (w - drawWidth) / 2;
+  const drawY = y + (h - drawHeight) / 2;
+  const centerX = drawX + drawWidth / 2;
+  const centerY = drawY + drawHeight / 2;
+
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  if (rotationRad) ctx.rotate(rotationRad);
+  ctx.translate(-centerX, -centerY);
+
   if (dropShadow) {
     ctx.save();
     ctx.shadowColor = dropShadow.color;
@@ -431,18 +507,16 @@ function drawImage(
     ctx.shadowOffsetY = dropShadow.offsetY;
 
     ctx.beginPath();
-    drawShapePath(ctx, x, y, w, h, cornerRadiusPx);
-    ctx.fillStyle = 'black'; // Color doesn't matter, shadow will show
+    drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, cornerRadiusPx);
+    ctx.fillStyle = 'black';
     ctx.fill();
     ctx.restore();
   }
 
-  // Clip and draw image with effects
   ctx.save();
 
-  // Separate CSS filters from pixel processors
-  const cssFilters = [];
-  const pixelProcessors = [];
+  const cssFilters: string[] = [];
+  const pixelProcessors: Effect[] = [];
 
   if (effects.length > 0) {
     for (const effect of effects) {
@@ -486,21 +560,20 @@ function drawImage(
   }
 
   ctx.beginPath();
-  drawShapePath(ctx, x, y, w, h, cornerRadiusPx);
+  drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, cornerRadiusPx);
   ctx.clip();
-  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  ctx.drawImage(img, sx, sy, sw, sh, drawX, drawY, drawWidth, drawHeight);
 
-  // Apply pixel processors after drawing the image
   for (const effect of pixelProcessors) {
     switch (effect.type) {
       case 'grain':
-        applyGrain(ctx, x, y, dw, dh, effect.value, effect.blendMode ?? 'overlay');
+        applyGrain(ctx, drawX, drawY, drawWidth, drawHeight, effect.value, effect.blendMode ?? 'overlay');
         break;
       case 'vignette':
-        applyVignette(ctx, x, y, dw, dh, effect.value, effect.blendMode ?? 'overlay');
+        applyVignette(ctx, drawX, drawY, drawWidth, drawHeight, effect.value, effect.blendMode ?? 'overlay');
         break;
       case 'sharpen':
-        applySharpen(ctx, x, y, dw, dh, effect.value);
+        applySharpen(ctx, drawX, drawY, drawWidth, drawHeight, effect.value);
         break;
       case 'bloom': {
         const amount = Math.max(0, Math.min(100, effect.value)) / 100;
@@ -510,7 +583,7 @@ function drawImage(
         ctx.globalCompositeOperation = blendMode as GlobalCompositeOperation;
         ctx.globalAlpha = amount;
         ctx.filter = `blur(${blurPx}px)`;
-        ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+        ctx.drawImage(img, sx, sy, sw, sh, drawX, drawY, drawWidth, drawHeight);
         ctx.restore();
         break;
       }
@@ -519,34 +592,29 @@ function drawImage(
 
   ctx.restore();
 
-  // Draw border if needed
   if (border && border.width > 0) {
     ctx.save();
     ctx.strokeStyle = border.color;
     ctx.lineWidth = border.width;
 
-    if (cornerRadiusPx > 0) {
-      ctx.beginPath();
-      drawShapePath(ctx, x, y, w, h, cornerRadiusPx);
-      ctx.stroke();
-    } else {
-      // Simple rectangular border with offset for stroke width
-      ctx.strokeRect(x + border.width / 2, y + border.width / 2, w - border.width, h - border.width);
-    }
+    ctx.beginPath();
+    drawShapePath(ctx, drawX, drawY, drawWidth, drawHeight, cornerRadiusPx);
+    ctx.stroke();
     ctx.restore();
   }
 
-  // Draw label and description
   if (imageData.label) {
     ctx.font = 'bold 14px sans-serif';
     ctx.fillStyle = '#fff';
-    ctx.fillText(imageData.label, x + 4, y + 16);
+    ctx.fillText(imageData.label, drawX + 4, drawY + 16);
   }
   if (imageData.description) {
     ctx.font = '12px sans-serif';
     ctx.fillStyle = '#fff';
-    ctx.fillText(imageData.description, x + 4, y + h - 6);
+    ctx.fillText(imageData.description, drawX + 4, drawY + drawHeight - 6);
   }
+
+  ctx.restore();
 }
 
 // --- Layout functions ---
