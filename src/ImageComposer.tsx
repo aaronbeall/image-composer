@@ -90,6 +90,8 @@ interface LayoutResult {
   items: LayoutItem[];
 }
 
+const MAX_CANVAS_SIZE = 3200;
+
 export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, jitterPosition = 0, jitterSize = 0, jitterRotation = 0, justify = false, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', effects = [], shape = 'rect', style, onUpdate }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -149,36 +151,65 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
           }
         }
       }
-      return { w: w * scale, h: h * scale };
+      return { w, h };
     });
 
     const avgW = sizes.reduce((a, s) => a + s.w, 0) / sizes.length;
     const avgH = sizes.reduce((a, s) => a + s.h, 0) / sizes.length;
-    const spacingFrac = spacing / 100 * 0.2;
+    const spacingFrac = spacing / 100 * 0.5;
     const spacingPx = Math.round(spacingFrac * ((avgW + avgH) / 2));
 
-    switch (layout) {
-      case 'single-row':
-        return layoutSingleRow(loadedImages, sizes, spacingPx, fit);
-      case 'single-column':
-        return layoutSingleColumn(loadedImages, sizes, spacingPx, fit);
-      case 'grid':
-        return layoutGrid(loadedImages, sizes, spacingPx, fit, justify);
-      case 'masonry':
-        return layoutMasonry(loadedImages, sizes, spacingPx, fit, justify);
-      case 'packed':
-        return layoutPacked(sizes, spacingPx, justify);
-      case 'cluster':
-        return layoutRadialMasonry(sizes, spacingPx);
-      case 'squarified':
-        return layoutSquarified(sizes, spacingPx);
-      case 'lanes':
-        return layoutLanes(loadedImages, sizes, spacingPx, fit, justify);
-      case 'bubble':
-        return layoutBubble(loadedImages, sizes, spacingPx);
-      default:
-        return { canvasWidth: 800, canvasHeight: 600, items: [] } as LayoutResult;
-    }
+    const layout_ = (() => {
+      switch (layout) {
+        case 'single-row':
+          return layoutSingleRow(loadedImages, sizes, spacingPx, fit);
+        case 'single-column':
+          return layoutSingleColumn(loadedImages, sizes, spacingPx, fit);
+        case 'grid':
+          return layoutGrid(loadedImages, sizes, spacingPx, fit, justify);
+        case 'masonry':
+          return layoutMasonry(loadedImages, sizes, spacingPx, fit, justify);
+        case 'packed':
+          return layoutPacked(sizes, spacingPx, justify);
+        case 'cluster':
+          return layoutRadialMasonry(sizes, spacingPx);
+        case 'squarified':
+          return layoutSquarified(sizes, spacingPx);
+        case 'lanes':
+          return layoutLanes(loadedImages, sizes, spacingPx, fit, justify);
+        case 'bubble':
+          return layoutBubble(loadedImages, sizes, spacingPx);
+        default:
+          return { canvasWidth: 800, canvasHeight: 600, items: [] } as LayoutResult;
+      }
+    })();
+
+    // Apply max size constraint (pre-scale)
+    const maxScaleFactor = Math.min(MAX_CANVAS_SIZE / layout_.canvasWidth, MAX_CANVAS_SIZE / layout_.canvasHeight);
+    const preScaledLayout = {
+      canvasWidth: layout_.canvasWidth * maxScaleFactor,
+      canvasHeight: layout_.canvasHeight * maxScaleFactor,
+      items: layout_.items.map(item => ({
+        ...item,
+        x: item.x * maxScaleFactor,
+        y: item.y * maxScaleFactor,
+        w: item.w * maxScaleFactor,
+        h: item.h * maxScaleFactor,
+      })),
+    };
+
+    // Apply user scale uniformly after pre-scaling
+    return {
+      canvasWidth: preScaledLayout.canvasWidth * scale,
+      canvasHeight: preScaledLayout.canvasHeight * scale,
+      items: preScaledLayout.items.map(item => ({
+        ...item,
+        x: item.x * scale,
+        y: item.y * scale,
+        w: item.w * scale,
+        h: item.h * scale,
+      })),
+    };
   }, [loadedImages, images, normalizeSize, layout, spacing, fit, scale, justify]);
 
   // Phase 3: draw composition when layout or style changes
