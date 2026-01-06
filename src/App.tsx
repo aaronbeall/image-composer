@@ -506,18 +506,18 @@ export default function App() {
                 {/* Toggles */}
                 <div className="flex flex-col gap-2 mt-2">
                   <label className="flex items-center justify-between text-xs font-medium">
-                    <span>Normalize size</span>
+                    <span>Normalize sizes</span>
                     <Switch checked={normalizeSize} onCheckedChange={setNormalizeSize} />
                   </label>
                   {supportsFit && (
                     <label className="flex items-center justify-between text-xs font-medium">
-                      <span>Fit</span>
+                      <span>Fit images</span>
                       <Switch checked={fit} onCheckedChange={setFit} />
                     </label>
                   )}
                   {supportsJustify && (
                     <label className="flex items-center justify-between text-xs font-medium">
-                      <span>Justify</span>
+                      <span>Justify layout</span>
                       <Switch checked={justify} onCheckedChange={setJustify} />
                     </label>
                   )}
@@ -915,18 +915,18 @@ export default function App() {
                   {/* Toggles */}
                   <div className="flex flex-col gap-2 mt-2 mb-2">
                     <label className="flex items-center justify-between text-xs font-medium">
-                      <span>Normalize size</span>
+                      <span>Normalize sizes</span>
                       <Switch checked={normalizeSize} onCheckedChange={setNormalizeSize} />
                     </label>
                     {supportsFit && (
                       <label className="flex items-center justify-between text-xs font-medium">
-                        <span>Fit</span>
+                        <span>Fit images</span>
                         <Switch checked={fit} onCheckedChange={setFit} />
                       </label>
                     )}
                     {supportsJustify && (
                       <label className="flex items-center justify-between text-xs font-medium">
-                        <span>Justify</span>
+                        <span>Justify layout</span>
                         <Switch checked={justify} onCheckedChange={setJustify} />
                       </label>
                     )}
