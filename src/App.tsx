@@ -19,6 +19,19 @@ const SIDEBAR_TABS = [
 ];
 
 // Effect configuration with metadata
+const BLEND_MODES = [
+  'screen',
+  'lighten',
+  'overlay',
+  'soft-light',
+  'hard-light',
+  'color-dodge',
+  'color-burn',
+  'multiply',
+] as const;
+
+const titleCaseBlend = (mode: string) => mode.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+
 const EFFECT_CONFIG = {
   blur: { label: 'Blur', default: 5, min: 0, max: 20, unit: 'px' },
   brightness: { label: 'Brightness', default: 100, min: 0, max: 200, unit: '%' },
@@ -28,13 +41,50 @@ const EFFECT_CONFIG = {
   invert: { label: 'Invert', default: 100, min: 0, max: 100, unit: '%' },
   saturate: { label: 'Saturate', default: 100, min: 0, max: 200, unit: '%' },
   sepia: { label: 'Sepia', default: 100, min: 0, max: 100, unit: '%' },
-  grain: { label: 'Grain', default: 20, min: 0, max: 100, unit: '%' },
-  vignette: { label: 'Vignette', default: 30, min: 0, max: 100, unit: '%' },
+  grain: {
+    label: 'Grain',
+    default: 20,
+    min: 0,
+    max: 100,
+    unit: '%',
+    blendModes: BLEND_MODES,
+    defaultBlendMode: 'overlay' as const,
+  },
+  vignette: {
+    label: 'Vignette',
+    default: 30,
+    min: 0,
+    max: 100,
+    unit: '%',
+    blendModes: BLEND_MODES,
+    defaultBlendMode: 'overlay' as const,
+  },
   sharpen: { label: 'Sharpen', default: 30, min: 0, max: 100, unit: '%' },
+  bloom: {
+    label: 'Bloom',
+    default: 40,
+    min: 0,
+    max: 100,
+    unit: '%',
+    blurDefault: 10,
+    blurMin: 0,
+    blurMax: 40,
+    blendModes: BLEND_MODES,
+    defaultBlendMode: 'overlay' as const,
+  },
 } as const;
 
 export type EffectType = keyof typeof EFFECT_CONFIG;
-export type Effect = { id: string; type: EffectType; value: number };
+export type BlendMode = (typeof BLEND_MODES)[number];
+type EffectConfig = (typeof EFFECT_CONFIG)[EffectType];
+
+export type Effect = {
+  id: string;
+  type: EffectType;
+  value: number;
+  blur?: number;
+  blendMode?: BlendMode;
+};
 
 // Image item type
 type ImageItem = {
@@ -555,10 +605,21 @@ export default function App() {
                     }))}
                     placeholder="Add effect..."
                     onValueChange={(value) => {
-                      if (value) {
-                        const config = EFFECT_CONFIG[value as EffectType];
-                        setEffects([...effects, { id: Date.now().toString(), type: value as EffectType, value: config.default }]);
+                      if (!value) return;
+                      const config = EFFECT_CONFIG[value as EffectType] as EffectConfig;
+                      const next: Effect = {
+                        id: Date.now().toString(),
+                        type: value as EffectType,
+                        value: config.default,
+                      };
+                      if ('blurDefault' in config) {
+                        next.blur = (config as typeof EFFECT_CONFIG.bloom).blurDefault;
                       }
+                      if ('blendModes' in config) {
+                        const cfg = config as { blendModes: readonly string[]; defaultBlendMode?: string };
+                        next.blendMode = cfg.defaultBlendMode ?? cfg.blendModes[0];
+                      }
+                      setEffects([...effects, next]);
                     }}
                     className="w-full"
                   />
@@ -566,9 +627,12 @@ export default function App() {
                     <div className="mt-3 space-y-2">
                       {effects.slice().reverse().map((effect) => {
                         const config = EFFECT_CONFIG[effect.type as EffectType];
+                        const hasBlur = 'blurDefault' in config;
+                        const hasBlend = 'blendModes' in config;
+                        const blendCfg = hasBlend ? (config as { blendModes: readonly string[]; defaultBlendMode?: string }) : null;
                         return (
                           <div key={effect.id} className="flex items-center gap-2 border border-neutral-700 rounded-lg p-2">
-                            <div className="flex-1">
+                            <div className="flex-1 space-y-2">
                               <div className="flex items-center justify-between mb-1">
                                 <label className="text-xs font-medium capitalize">{config.label}</label>
                                 <span className="text-xs text-neutral-400">
@@ -584,6 +648,43 @@ export default function App() {
                                 }}
                                 className="w-full"
                               />
+
+                              {hasBlur && (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-neutral-300">Blur</span>
+                                    <span className="text-xs text-neutral-400">{effect.blur ?? (config as typeof EFFECT_CONFIG.bloom).blurDefault}px</span>
+                                  </div>
+                                  <Slider
+                                    value={[effect.blur ?? (config as typeof EFFECT_CONFIG.bloom).blurDefault]}
+                                    min={(config as typeof EFFECT_CONFIG.bloom).blurMin}
+                                    max={(config as typeof EFFECT_CONFIG.bloom).blurMax}
+                                    onValueChange={(val) => {
+                                      setEffects(effects.map(e => e.id === effect.id ? { ...e, blur: val[0] } : e));
+                                    }}
+                                    className="w-full"
+                                  />
+
+                                </>
+                              )}
+
+                              {hasBlend && blendCfg && (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-neutral-300">Blend Mode</span>
+                                    <span className="text-xs text-neutral-400">{titleCaseBlend(effect.blendMode ?? blendCfg.defaultBlendMode ?? blendCfg.blendModes[0])}</span>
+                                  </div>
+                                  <Combobox
+                                    options={blendCfg.blendModes.map(mode => ({ value: mode, label: titleCaseBlend(mode) }))}
+                                    value={effect.blendMode}
+                                    onValueChange={(mode) => {
+                                      setEffects(effects.map(e => e.id === effect.id ? { ...e, blendMode: mode as BlendMode } : e));
+                                    }}
+                                    className="w-full"
+                                    placeholder="Select mode"
+                                  />
+                                </>
+                              )}
                             </div>
                             <Button
                               variant="ghost"
@@ -863,10 +964,21 @@ export default function App() {
                       }))}
                       placeholder="Add effect..."
                       onValueChange={(value) => {
-                        if (value) {
-                          const config = EFFECT_CONFIG[value as EffectType];
-                          setEffects([...effects, { id: Date.now().toString(), type: value as EffectType, value: config.default }]);
+                        if (!value) return;
+                        const config = EFFECT_CONFIG[value as EffectType] as EffectConfig;
+                        const next: Effect = {
+                          id: Date.now().toString(),
+                          type: value as EffectType,
+                          value: config.default,
+                        };
+                        if ('blurDefault' in config) {
+                          next.blur = (config as typeof EFFECT_CONFIG.bloom).blurDefault;
                         }
+                        if ('blendModes' in config) {
+                          const cfg = config as { blendModes: readonly string[]; defaultBlendMode?: string };
+                          next.blendMode = cfg.defaultBlendMode ?? cfg.blendModes[0];
+                        }
+                        setEffects([...effects, next]);
                       }}
                       className="w-full"
                     />
@@ -874,9 +986,12 @@ export default function App() {
                       <div className="mt-3 space-y-2">
                         {effects.slice().reverse().map((effect) => {
                           const config = EFFECT_CONFIG[effect.type as EffectType];
+                          const hasBlur = 'blurDefault' in config;
+                          const hasBlend = 'blendModes' in config;
+                          const blendCfg = hasBlend ? (config as { blendModes: readonly string[]; defaultBlendMode?: string }) : null;
                           return (
                             <div key={effect.id} className="flex items-center gap-2 border border-neutral-700 rounded-lg p-2">
-                              <div className="flex-1">
+                              <div className="flex-1 space-y-2">
                                 <div className="flex items-center justify-between mb-1">
                                   <label className="text-xs font-medium capitalize">{config.label}</label>
                                   <span className="text-xs text-neutral-400">
@@ -892,6 +1007,42 @@ export default function App() {
                                   }}
                                   className="w-full"
                                 />
+
+                                {hasBlur && (
+                                  <>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-neutral-300">Blur</span>
+                                      <span className="text-xs text-neutral-400">{effect.blur ?? (config as typeof EFFECT_CONFIG.bloom).blurDefault}px</span>
+                                    </div>
+                                    <Slider
+                                      value={[effect.blur ?? (config as typeof EFFECT_CONFIG.bloom).blurDefault]}
+                                      min={(config as typeof EFFECT_CONFIG.bloom).blurMin}
+                                      max={(config as typeof EFFECT_CONFIG.bloom).blurMax}
+                                      onValueChange={(val) => {
+                                        setEffects(effects.map(e => e.id === effect.id ? { ...e, blur: val[0] } : e));
+                                      }}
+                                      className="w-full"
+                                    />
+                                  </>
+                                )}
+
+                                {hasBlend && blendCfg && (
+                                  <>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-neutral-300">Blend Mode</span>
+                                      <span className="text-xs text-neutral-400">{titleCaseBlend(effect.blendMode ?? blendCfg.defaultBlendMode ?? blendCfg.blendModes[0])}</span>
+                                    </div>
+                                    <Combobox
+                                      options={blendCfg.blendModes.map(mode => ({ value: mode, label: titleCaseBlend(mode) }))}
+                                      value={effect.blendMode}
+                                      onValueChange={(mode) => {
+                                        setEffects(effects.map(e => e.id === effect.id ? { ...e, blendMode: mode as BlendMode } : e));
+                                      }}
+                                      className="w-full"
+                                      placeholder="Select mode"
+                                    />
+                                  </>
+                                )}
                               </div>
                               <Button
                                 variant="ghost"

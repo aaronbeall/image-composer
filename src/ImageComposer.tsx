@@ -295,23 +295,42 @@ function drawShapePath(
 }
 
 // Pixel processor functions
-function applyGrain(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, intensity: number) {
-  const grainIntensity = intensity / 100;
-  const imageData = ctx.getImageData(x, y, w, h);
+function applyGrain(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  intensity: number,
+  blendMode: string = 'overlay'
+) {
+  const noiseCanvas = document.createElement('canvas');
+  noiseCanvas.width = Math.max(1, Math.floor(w));
+  noiseCanvas.height = Math.max(1, Math.floor(h));
+  const nctx = noiseCanvas.getContext('2d');
+  if (!nctx) return;
+
+  const imageData = nctx.createImageData(noiseCanvas.width, noiseCanvas.height);
   const data = imageData.data;
+  const alpha = Math.max(0, Math.min(100, intensity)) / 100 * 64; // up to ~25% opacity
 
   for (let i = 0; i < data.length; i += 4) {
-    const grain = (Math.random() - 0.5) * 2 * grainIntensity * 255;
-    data[i] += grain;     // R
-    data[i + 1] += grain; // G
-    data[i + 2] += grain; // B
-    // Keep alpha unchanged
+    const value = Math.random() < 0.5 ? 0 : 255;
+    data[i] = value;
+    data[i + 1] = value;
+    data[i + 2] = value;
+    data[i + 3] = alpha;
   }
 
-  ctx.putImageData(imageData, x, y);
+  nctx.putImageData(imageData, 0, 0);
+
+  ctx.save();
+  ctx.globalCompositeOperation = blendMode as GlobalCompositeOperation;
+  ctx.drawImage(noiseCanvas, x, y, w, h);
+  ctx.restore();
 }
 
-function applyVignette(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, intensity: number) {
+function applyVignette(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, intensity: number, blendMode: string = 'overlay') {
   ctx.save();
 
   const centerX = x + w / 2;
@@ -322,7 +341,7 @@ function applyVignette(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
   gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
   gradient.addColorStop(1, `rgba(0, 0, 0, ${intensity / 100})`);
 
-  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalCompositeOperation = blendMode as GlobalCompositeOperation;
   ctx.fillStyle = gradient;
   ctx.beginPath();
   ctx.rect(x, y, w, h);
@@ -455,6 +474,7 @@ function drawImage(
         case 'grain':
         case 'vignette':
         case 'sharpen':
+        case 'bloom':
           pixelProcessors.push(effect);
           break;
       }
@@ -474,14 +494,26 @@ function drawImage(
   for (const effect of pixelProcessors) {
     switch (effect.type) {
       case 'grain':
-        applyGrain(ctx, x, y, dw, dh, effect.value);
+        applyGrain(ctx, x, y, dw, dh, effect.value, effect.blendMode ?? 'overlay');
         break;
       case 'vignette':
-        applyVignette(ctx, x, y, dw, dh, effect.value);
+        applyVignette(ctx, x, y, dw, dh, effect.value, effect.blendMode ?? 'overlay');
         break;
       case 'sharpen':
         applySharpen(ctx, x, y, dw, dh, effect.value);
         break;
+      case 'bloom': {
+        const amount = Math.max(0, Math.min(100, effect.value)) / 100;
+        const blurPx = Math.max(0, effect.blur ?? 10);
+        const blendMode = effect.blendMode ?? 'overlay';
+        ctx.save();
+        ctx.globalCompositeOperation = blendMode as GlobalCompositeOperation;
+        ctx.globalAlpha = amount;
+        ctx.filter = `blur(${blurPx}px)`;
+        ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+        ctx.restore();
+        break;
+      }
     }
   }
 
