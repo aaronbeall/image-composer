@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { EffectType } from './App';
 
 export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'cluster' | 'squarified';
 
@@ -27,7 +28,7 @@ export interface StyleOptions {
   shadowDistance?: number;
   shadowBlur?: number;
   shadowColor?: string;
-  effects?: Array<{ id: string; type: string; value: number }>;
+  effects?: Array<{ id: string; type: EffectType; value: number }>;
 }
 
 interface ImageComposerProps extends LayoutOptions, StyleOptions {
@@ -216,7 +217,7 @@ function drawComposition(
   shadowDistance: number = 0,
   shadowBlur: number = 0,
   shadowColor: string = '#000000',
-  effects: Array<{ id: string; type: string; value: number }> = []
+  effects: Array<{ id: string; type: EffectType; value: number }> = []
 ) {
   // Set canvas size
   ctx.canvas.width = layout.canvasWidth;
@@ -293,6 +294,83 @@ function drawShapePath(
   }
 }
 
+// Pixel processor functions
+function applyGrain(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, intensity: number) {
+  const grainIntensity = intensity / 100;
+  const imageData = ctx.getImageData(x, y, w, h);
+  const data = imageData.data;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const grain = (Math.random() - 0.5) * 2 * grainIntensity * 255;
+    data[i] += grain;     // R
+    data[i + 1] += grain; // G
+    data[i + 2] += grain; // B
+    // Keep alpha unchanged
+  }
+
+  ctx.putImageData(imageData, x, y);
+}
+
+function applyVignette(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, intensity: number) {
+  ctx.save();
+
+  const centerX = x + w / 2;
+  const centerY = y + h / 2;
+  const maxDist = Math.sqrt(w * w + h * h) / 2;
+
+  const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxDist);
+  gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  gradient.addColorStop(1, `rgba(0, 0, 0, ${intensity / 100})`);
+
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function applySharpen(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, intensity: number) {
+  const strength = intensity / 100;
+  const imageData = ctx.getImageData(x, y, w, h);
+  const data = imageData.data;
+  const width = w;
+  const height = h;
+
+  // Sharpen kernel
+  const kernel = [
+    0, -strength, 0,
+    -strength, 1 + 4 * strength, -strength,
+    0, -strength, 0
+  ];
+
+  const output = new Uint8ClampedArray(data);
+
+  for (let py = 1; py < height - 1; py++) {
+    for (let px = 1; px < width - 1; px++) {
+      let r = 0, g = 0, b = 0;
+
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const idx = ((py + ky) * width + (px + kx)) * 4;
+          const k = kernel[(ky + 1) * 3 + (kx + 1)];
+          r += data[idx] * k;
+          g += data[idx + 1] * k;
+          b += data[idx + 2] * k;
+        }
+      }
+
+      const outIdx = (py * width + px) * 4;
+      output[outIdx] = Math.max(0, Math.min(255, r));
+      output[outIdx + 1] = Math.max(0, Math.min(255, g));
+      output[outIdx + 2] = Math.max(0, Math.min(255, b));
+    }
+  }
+
+  ctx.putImageData(new ImageData(output, width, height), x, y);
+}
+
 function drawImage(
   ctx: CanvasRenderingContext2D,
   item: LayoutItem,
@@ -302,7 +380,7 @@ function drawImage(
   cornerRadiusPx: number = 0,
   border?: { color: string, width: number },
   dropShadow?: { color: string, offsetX: number, offsetY: number, blur: number },
-  effects: Array<{ id: string; type: string; value: number }> = []
+  effects: Array<{ id: string; type: EffectType; value: number }> = []
 ) {
   const { x, y, w, h } = item;
 
@@ -343,37 +421,70 @@ function drawImage(
   // Clip and draw image with effects
   ctx.save();
 
-  // Apply effects filter
+  // Separate CSS filters from pixel processors
+  const cssFilters = [];
+  const pixelProcessors = [];
+
   if (effects.length > 0) {
-    const filterString = effects.map(effect => {
+    for (const effect of effects) {
       switch (effect.type) {
         case 'blur':
-          return `blur(${effect.value}px)`;
+          cssFilters.push(`blur(${effect.value}px)`);
+          break;
         case 'brightness':
-          return `brightness(${effect.value}%)`;
+          cssFilters.push(`brightness(${effect.value}%)`);
+          break;
         case 'contrast':
-          return `contrast(${effect.value}%)`;
+          cssFilters.push(`contrast(${effect.value}%)`);
+          break;
         case 'grayscale':
-          return `grayscale(${effect.value}%)`;
+          cssFilters.push(`grayscale(${effect.value}%)`);
+          break;
         case 'hue-rotate':
-          return `hue-rotate(${effect.value}deg)`;
+          cssFilters.push(`hue-rotate(${effect.value}deg)`);
+          break;
         case 'invert':
-          return `invert(${effect.value}%)`;
+          cssFilters.push(`invert(${effect.value}%)`);
+          break;
         case 'saturate':
-          return `saturate(${effect.value}%)`;
+          cssFilters.push(`saturate(${effect.value}%)`);
+          break;
         case 'sepia':
-          return `sepia(${effect.value}%)`;
-        default:
-          return '';
+          cssFilters.push(`sepia(${effect.value}%)`);
+          break;
+        case 'grain':
+        case 'vignette':
+        case 'sharpen':
+          pixelProcessors.push(effect);
+          break;
       }
-    }).filter(Boolean).join(' ');
-    ctx.filter = filterString;
+    }
+
+    if (cssFilters.length > 0) {
+      ctx.filter = cssFilters.join(' ');
+    }
   }
 
   ctx.beginPath();
   drawShapePath(ctx, x, y, w, h, cornerRadiusPx);
   ctx.clip();
   ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+
+  // Apply pixel processors after drawing the image
+  for (const effect of pixelProcessors) {
+    switch (effect.type) {
+      case 'grain':
+        applyGrain(ctx, x, y, dw, dh, effect.value);
+        break;
+      case 'vignette':
+        applyVignette(ctx, x, y, dw, dh, effect.value);
+        break;
+      case 'sharpen':
+        applySharpen(ctx, x, y, dw, dh, effect.value);
+        break;
+    }
+  }
+
   ctx.restore();
 
   // Draw border if needed
