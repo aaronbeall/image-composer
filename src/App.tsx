@@ -34,6 +34,7 @@ const EFFECT_CONFIG = {
 } as const;
 
 export type EffectType = keyof typeof EFFECT_CONFIG;
+export type Effect = { id: string; type: EffectType; value: number };
 
 // Image item type
 type ImageItem = {
@@ -55,7 +56,7 @@ export default function App() {
   const [shadowColor, setShadowColor] = useState('#000000');
   const [shadowOpacity, setShadowOpacity] = useState(65);
   const [cornerRadius, setCornerRadius] = useState(0);
-  const [effects, setEffects] = useState<Array<{ id: string; type: EffectType; value: number }>>([]);
+  const [effects, setEffects] = useState<Effect[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('images');
 

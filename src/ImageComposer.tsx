@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { EffectType } from './App';
+import type { Effect, EffectType } from './App';
 
 export type LayoutType = 'grid' | 'packed' | 'masonry' | 'single-column' | 'single-row' | 'cluster' | 'squarified';
 
@@ -28,7 +28,7 @@ export interface StyleOptions {
   shadowDistance?: number;
   shadowBlur?: number;
   shadowColor?: string;
-  effects?: Array<{ id: string; type: EffectType; value: number }>;
+  effects?: Effect[];
 }
 
 interface ImageComposerProps extends LayoutOptions, StyleOptions {
@@ -217,7 +217,7 @@ function drawComposition(
   shadowDistance: number = 0,
   shadowBlur: number = 0,
   shadowColor: string = '#000000',
-  effects: Array<{ id: string; type: EffectType; value: number }> = []
+  effects: Effect[] = []
 ) {
   // Set canvas size
   ctx.canvas.width = layout.canvasWidth;
@@ -380,7 +380,7 @@ function drawImage(
   cornerRadiusPx: number = 0,
   border?: { color: string, width: number },
   dropShadow?: { color: string, offsetX: number, offsetY: number, blur: number },
-  effects: Array<{ id: string; type: EffectType; value: number }> = []
+  effects: Effect[] = []
 ) {
   const { x, y, w, h } = item;
 
