@@ -1472,14 +1472,16 @@ type BackgroundColorSelectorProps = {
 };
 function BackgroundColorSelector({ bgColor, setBgColor }: BackgroundColorSelectorProps) {
   const presets = [
-    { name: 'White', value: '#fff' },
-    { name: 'Light Gray', value: '#eee' },
-    { name: 'Gray', value: '#888' },
-    { name: 'Black', value: '#222' },
-    { name: 'Blue', value: '#4e54c8' },
-    { name: 'Red', value: '#e44' },
-    { name: 'Yellow', value: '#ffe066' },
-    { name: 'Green', value: '#4caf50' },
+    { name: 'White', value: '#ffffff' },
+    { name: 'Sky', value: '#7dc8ff' },
+    { name: 'Teal', value: '#2dd4bf' },
+    { name: 'Emerald', value: '#34d399' },
+    { name: 'Lime', value: '#a3e635' },
+    { name: 'Amber', value: '#f59e0b' },
+    { name: 'Coral', value: '#ff7b72' },
+    { name: 'Rose', value: '#f472b6' },
+    { name: 'Violet', value: '#8b5cf6' },
+    { name: 'Charcoal', value: '#1f2937' },
   ];
   return (
     <div className="flex flex-row flex-wrap gap-2 items-center">
