@@ -20,7 +20,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const SIDEBAR_TABS = [
+const NAV_ITEMS = [
   { key: 'images', icon: <ImagePlus size={20} />, label: 'Images' },
   { key: 'layout', icon: <LayoutGrid size={20} />, label: 'Layout' },
   { key: 'style', icon: <Paintbrush size={20} />, label: 'Style' },
@@ -582,7 +582,7 @@ export default function App() {
           'min-h-[calc(100vh-56px)]'
         )}>
           <div className="flex flex-col items-center py-4 gap-2 flex-1 group/sidebar">
-            {SIDEBAR_TABS.map(tab => (
+            {NAV_ITEMS.map(tab => (
               <div key={tab.key} className="relative mb-2">
                 <Button
                   variant="ghost"
@@ -872,7 +872,7 @@ export default function App() {
           <div className="fixed bottom-0 left-0 w-full z-50 bg-neutral-950 border-t border-neutral-800 flex lg:hidden max-w-screen h-16">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="flex flex-row w-full justify-between px-2 bg-transparent h-full">
-                {SIDEBAR_TABS.map(tab => (
+                {NAV_ITEMS.map(tab => (
                   <DrawerTrigger asChild key={tab.key}>
                     <TabsTrigger value={tab.key} className="flex-1 flex flex-col items-center gap-0.5 data-[state=active]:text-indigo-400 py-3">{tab.icon}<span className="text-xs">{tab.label}</span></TabsTrigger>
                   </DrawerTrigger>
