@@ -1,6 +1,5 @@
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Dices } from 'lucide-react';
-import type { Sequence as Sequence } from '@/lib/layout';
+import type { Sequence } from '@/lib/layout';
 
 interface SequenceSelectorProps {
   value: Sequence | '';
