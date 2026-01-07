@@ -757,7 +757,7 @@ export default function App() {
           </div>
         </div>
         {/* Main work area */}
-        <main className="flex-1 flex flex-col items-center justify-center bg-neutral-900 relative overflow-hidden pb-16 lg:pb-0">
+        <main className="flex-1 flex flex-col items-center justify-center bg-neutral-900 relative overflow-hidden pb-16 lg:pb-0 px-4 sm:px-0">
           {images.length === 0 ? (
             <div
               ref={dropAreaRef}
@@ -767,11 +767,11 @@ export default function App() {
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
               aria-label="Main image drop area"
-              className={`transition-all border-2 ${isDragOver ? 'border-indigo-400 outline outline-2 outline-indigo-300 shadow-lg bg-gradient-to-r from-indigo-950 to-indigo-900' : 'border-dashed border-neutral-700'} rounded-2xl max-w-lg w-full flex flex-col justify-center items-center relative p-8 mb-8 cursor-pointer`}
+              className={`transition-all border-2 ${isDragOver ? 'border-indigo-400 outline outline-2 outline-indigo-300 shadow-lg bg-gradient-to-r from-indigo-950 to-indigo-900' : 'border-dashed border-neutral-700'} rounded-2xl w-full max-w-lg flex flex-col justify-center items-center relative p-6 sm:p-8 mb-4 sm:mb-8 cursor-pointer`}
             >
-              <Upload size={48} className="text-neutral-400 mb-4" />
-              <div className="font-bold text-2xl text-white mb-2">Drag and drop images here</div>
-              <div className="flex flex-row gap-4 mb-2">
+              <Upload size={32} className="text-neutral-400 mb-3 sm:mb-4 sm:size-12" />
+              <div className="font-bold text-lg sm:text-2xl text-white mb-2 text-center">Drag and drop images</div>
+              <div className="hidden sm:flex flex-row gap-4 mb-2">
                 <Button variant="default" size="lg" onClick={handleBrowse} className="flex items-center gap-2 px-6 py-2 text-lg font-semibold">
                   <ImagePlus size={22} /> Browse
                 </Button>
@@ -779,8 +779,16 @@ export default function App() {
                   <ClipboardPaste size={22} /> Paste
                 </Button>
               </div>
-              <div className="text-neutral-400 text-base mt-2">or use <kbd>Ctrl+V</kbd> / <kbd>Cmd+V</kbd> to paste from your clipboard</div>
-              <div className="text-neutral-500 text-xs mt-6 max-w-xs text-center">
+              <div className="flex sm:hidden flex-col gap-2 mb-2 w-full">
+                <Button variant="default" size="sm" onClick={handleBrowse} className="flex items-center justify-center gap-2 w-full font-semibold">
+                  <ImagePlus size={18} /> Browse
+                </Button>
+                <Button variant="secondary" size="sm" onClick={handlePasteButton} className="flex items-center justify-center gap-2 w-full font-semibold">
+                  <ClipboardPaste size={18} /> Paste
+                </Button>
+              </div>
+              <div className="hidden sm:block text-neutral-400 text-base mt-2 text-center">or use <kbd>Ctrl+V</kbd> / <kbd>Cmd+V</kbd></div>
+              <div className="text-neutral-500 text-xs mt-4 sm:mt-6 max-w-xs text-center">
                 Your images stay private — nothing is uploaded to servers. No account needed. All processing happens locally on your device.
               </div>
             </div>
