@@ -1,6 +1,59 @@
+import { mulberry32 } from './utils';
 
 // --- Layout algorithms and types ---
 export type LayoutType = 'grid' | 'packed' | 'masonry' | 'lanes' | 'single-column' | 'single-row' | 'cluster' | 'squarified' | 'bubble';
+
+export type Sequence = 'random' | 'linear' | 'exponential' | 'bulge' | 'peak';
+
+// Helper function to compute resize factor for an image based on sequence
+function getResizeFactor(
+  index: number,
+  total: number,
+  amount: number,
+  sequence: Sequence
+): number {
+  // Convert percentage to scale factor: -100 => 0.0 (0%), 0 => 1.0 (100%), 200 => 3.0 (300%)
+  const baseScale = 1;
+  const targetScale = 1 + (amount / 100);
+
+  if (sequence === 'random') {
+    // Use seeded random based on index for deterministic results
+    const seed = index * 12345 + 67890;
+    const random = mulberry32(seed)();
+    // Random between base (1.0) and target
+    const min = Math.min(baseScale, targetScale);
+    const max = Math.max(baseScale, targetScale);
+    return min + random * (max - min);
+  }
+
+  const progress = total > 1 ? index / (total - 1) : 0;
+
+  if (sequence === 'linear') {
+    // Negative amount: descending (1.0 → targetScale)
+    // Positive amount: ascending (1.0 → targetScale)
+    return baseScale + progress * (targetScale - baseScale);
+  }
+
+  if (sequence === 'exponential') {
+    const expProgress = progress * progress; // Quadratic ease
+    return baseScale + expProgress * (targetScale - baseScale);
+  }
+
+  if (sequence === 'bulge') {
+    // Bell curve: edges at base scale, middle at target scale
+    const bellFactor = 1 - Math.pow(progress - 0.5, 2) * 4; // Parabola peaking at 0.5
+    return baseScale + bellFactor * (targetScale - baseScale);
+  }
+
+  if (sequence === 'peak') {
+    // Sharp peak: exponential distribution with maximum at middle
+    const distanceFromCenter = Math.abs(progress - 0.5) * 2; // 0 at center, 1 at edges
+    const peakFactor = Math.pow(1 - distanceFromCenter, 3); // Cubic falloff for sharp peak
+    return baseScale + peakFactor * (targetScale - baseScale);
+  }
+
+  return 1;
+}
 
 export interface ComposeImageItem {
   id: string;
@@ -19,13 +72,18 @@ export interface LayoutOptions {
   normalizeSize: boolean;
 
   // Controls
-  spacing?: number; // 0-100, relative to avg image size
-  fit?: boolean; // fit option for grid/masonry
-  scale?: number;
-  jitterPosition?: number;
-  jitterSize?: number;
-  jitterRotation?: number;
-  justify?: boolean;
+  spacing: number; // 0-100, relative to avg image size
+  fit: boolean; // fit option for grid/masonry
+  scale: number;
+  jitterPosition: number;
+  jitterSize: number;
+  jitterRotation: number;
+  justify: boolean;
+
+  // Resize controls
+  resizeEnabled: boolean;
+  resizeAmount: number; // [-100, 200] where -100 = 0% size, 0 = 100%, 200 = 300%
+  resizeSequence: Sequence;
 }
 
 type NormalizeMode = 'both' | 'width' | 'height';
@@ -55,6 +113,7 @@ export interface LayoutResult {
   canvasWidth: number;
   canvasHeight: number;
   items: LayoutItem[];
+  fit?: boolean; // Override user fit option if needed
 }
 
 export const MAX_CANVAS_SIZE = 3200;
@@ -65,19 +124,25 @@ export function layoutComposition({
   images,
   normalizeSize,
   layout,
-  spacing = 0,
-  fit = false,
-  scale = 1,
-  justify = false,
+  spacing,
+  fit,
+  scale,
+  justify,
+  resizeEnabled,
+  resizeAmount,
+  resizeSequence,
 }: {
   loadedImages: ImageBitmap[];
   images: ComposeImageItem[];
   normalizeSize: boolean;
   layout: LayoutType;
-  spacing?: number;
-  fit?: boolean;
-  scale?: number;
-  justify?: boolean;
+  spacing: number;
+  fit: boolean;
+  scale: number;
+  justify: boolean;
+  resizeEnabled: boolean;
+  resizeAmount: number;
+  resizeSequence: Sequence;
 }) {
   if (!loadedImages || !loadedImages.length || loadedImages.length !== images.length) return { canvasWidth: 1, canvasHeight: 1, items: [] };
 
@@ -91,7 +156,7 @@ export function layoutComposition({
   }
 
   // Compute sizes (after normalization if applicable)
-  const sizes = loadedImages.map(img => {
+  const sizes = loadedImages.map((img, i) => {
     let w = img.width, h = img.height;
     if (normalizeSize) {
       if (layout === 'single-row' && norm.height) {
@@ -111,6 +176,18 @@ export function layoutComposition({
         }
       }
     }
+
+    // Apply resize adjustments after normalization but before layout
+    if (resizeEnabled) {
+      const resizeFactor = getResizeFactor(i, loadedImages.length, resizeAmount, resizeSequence);
+      w = Math.round(w * resizeFactor);
+      h = Math.round(h * resizeFactor);
+    }
+
+    // Enforce minimum size to prevent layout issues with 0-sized images
+    w = Math.max(1, w);
+    h = Math.max(1, h);
+
     return { w, h };
   });
 
@@ -162,6 +239,7 @@ export function layoutComposition({
 
   // Apply user scale uniformly after pre-scaling
   return {
+    ...layoutResult,
     canvasWidth: preScaledLayout.canvasWidth * scale,
     canvasHeight: preScaledLayout.canvasHeight * scale,
     items: preScaledLayout.items.map(item => ({
@@ -201,7 +279,8 @@ export function layoutSingleRow(
   loadedImgs.forEach((_img, i) => {
     const w = fit ? scaledWidths[i] : sizes[i].w;
     const h = fit ? maxHeight - 2 * spacing : sizes[i].h;
-    items.push({ x, y: spacing, w, h, imageIndex: i });
+    const y = fit ? spacing : spacing + (maxHeight - 2 * spacing - h) / 2;
+    items.push({ x, y, w, h, imageIndex: i });
     x += w + spacing;
   });
 
@@ -622,7 +701,7 @@ export function layoutBubble(
   // Restore original order to preserve image sequence
   items.sort((a, b) => a.imageIndex - b.imageIndex);
 
-  return { canvasWidth, canvasHeight, items };
+  return { canvasWidth, canvasHeight, items, fit: true };
 }
 
 // Maximal rectangles bin-packing: place images in any available gap, splitting gaps as needed

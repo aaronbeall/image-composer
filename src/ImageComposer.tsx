@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { StyleOptions } from './lib/draw';
 import { type ComposeImageItem, type LayoutOptions } from './lib/layout';
 import { arrayShallowEqual } from './lib/utils';
+import type { ComposeWorkerMessage, ComposeWorkerResponse } from './lib/compose.worker';
 
 interface ImageComposerProps extends LayoutOptions, StyleOptions {
   images: ComposeImageItem[];
@@ -28,7 +29,36 @@ function loadBitmap(src: string) {
 }
 
 
-export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeSize, layout, spacing = 0, fit = false, scale = 1, jitterPosition = 0, jitterSize = 0, jitterRotation = 0, justify = false, backgroundColor = 'transparent', cornerRadius = 0, borderEnabled = false, borderWidth = 0, borderColor = '#ffffff', shadowEnabled = false, shadowAngle = 0, shadowDistance = 0, shadowBlur = 0, shadowColor = '#000000', effects = [], shape = 'rect', style, onUpdate }) => {
+export const ImageComposer: React.FC<ImageComposerProps> = ({
+  images,
+  normalizeSize,
+  layout,
+  spacing,
+  fit,
+  scale,
+  jitterPosition,
+  jitterSize,
+  jitterRotation,
+  justify,
+  backgroundColor,
+  cornerRadius,
+  borderEnabled,
+  borderWidth,
+  borderColor,
+  shadowEnabled,
+  shadowAngle,
+  shadowDistance,
+  shadowBlur,
+  shadowColor,
+  effects,
+  shape,
+  resizeEnabled,
+  resizeAmount,
+  resizeSequence,
+  style,
+  onUpdate
+}) => {
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageBitmapCacheRef = useRef<Map<string, ImageBitmap>>(new Map());
   const workerRef = useRef<Worker | null>(null);
@@ -43,13 +73,13 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       { type: 'module' }
     );
 
-    drawWorker.onmessage = (event) => {
+    drawWorker.onmessage = (event: MessageEvent<ComposeWorkerResponse>) => {
       if (event.data.type === 'start') {
         setIsRendering(true);
       } else if (event.data.type === 'complete') {
         const { canvasWidth, canvasHeight, imageBitmap } = event.data;
         const canvas = canvasRef.current;
-        if (canvas && imageBitmap) {
+        if (canvas && imageBitmap && canvasWidth && canvasHeight) {
           canvas.width = canvasWidth;
           canvas.height = canvasHeight;
 
@@ -142,11 +172,11 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
           ? await Promise.all(loadedImageBitmaps.map(b => createImageBitmap(b)))
           : undefined;
 
-        const payload = {
+        const payload: ComposeWorkerMessage = {
           type: 'compose',
           offscreenCanvas,
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          images: images.map(({ src, file, ...img }) => img), // Exclude src/file from image data sent to worker 
+          images: images.map(({ src, file, ...img }) => ({ src: "", ...img })), // Exclude src/file from image data sent to worker 
           loadedImgs: bitmapsToTransfer,
           options: {
             // Layout options
@@ -172,6 +202,10 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
             jitterSize,
             jitterRotation,
             shape,
+            // Resize options
+            resizeEnabled,
+            resizeAmount,
+            resizeSequence,
           },
         } as const;
 
@@ -215,6 +249,9 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     jitterSize,
     jitterRotation,
     shape,
+    resizeEnabled,
+    resizeAmount,
+    resizeSequence,
   ]);
 
   return (

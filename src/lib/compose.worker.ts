@@ -2,7 +2,7 @@ import { drawComposition, type DrawingOptions } from './draw';
 import { layoutComposition, type LayoutResult } from './layout';
 import type { ComposeImageItem } from './layout';
 
-interface DrawWorkerMessage {
+export interface ComposeWorkerMessage {
   type: 'compose';
   offscreenCanvas: OffscreenCanvas;
   images: ComposeImageItem[];
@@ -10,7 +10,7 @@ interface DrawWorkerMessage {
   options: DrawingOptions;
 }
 
-interface DrawWorkerResponse {
+export interface ComposeWorkerResponse {
   type: 'start' | 'complete' | 'error';
   canvasWidth?: number;
   canvasHeight?: number;
@@ -22,13 +22,13 @@ let lastLayoutKey: string | null = null;
 let lastLayoutResult: LayoutResult | null = null;
 let cachedBitmaps: ImageBitmap[] | null = null;
 
-self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
+self.onmessage = async (event: MessageEvent<ComposeWorkerMessage>) => {
   if (event.data.type !== 'compose') return;
 
   // Notify main thread that rendering has started
   self.postMessage({
     type: 'start'
-  } as DrawWorkerResponse);
+  } as ComposeWorkerResponse);
 
   try {
     const { offscreenCanvas, images, loadedImgs, options } = event.data;
@@ -44,7 +44,7 @@ self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
       self.postMessage({
         type: 'error',
         error: 'No bitmaps available in worker',
-      } as DrawWorkerResponse);
+      } as ComposeWorkerResponse);
       return;
     }
 
@@ -57,6 +57,9 @@ self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
       fit: options.fit,
       scale: options.scale,
       justify: options.justify,
+      resizeEnabled: options.resizeEnabled,
+      resizeAmount: options.resizeAmount,
+      resizeSequence: options.resizeSequence,
     }
 
     // Compute layout (with simple cache)
@@ -84,7 +87,7 @@ self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
       self.postMessage({
         type: 'error',
         error: 'Failed to get 2d context from offscreen canvas'
-      } as DrawWorkerResponse);
+      } as ComposeWorkerResponse);
       return;
     }
 
@@ -100,11 +103,11 @@ self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
       canvasWidth: offscreenCanvas.width,
       canvasHeight: offscreenCanvas.height,
       imageBitmap
-    } as DrawWorkerResponse, { transfer: [imageBitmap] });
+    } as ComposeWorkerResponse, { transfer: [imageBitmap] });
   } catch (error) {
     self.postMessage({
       type: 'error',
       error: error instanceof Error ? error.message : 'Unknown error in draw worker'
-    } as DrawWorkerResponse);
+    } as ComposeWorkerResponse);
   }
 };

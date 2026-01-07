@@ -3,18 +3,18 @@ import type { Effect } from "@/types";
 import { hashString, mulberry32 } from "./utils";
 
 export interface StyleOptions {
-  backgroundColor?: string;
-  cornerRadius?: number;
-  borderEnabled?: boolean;
-  borderWidth?: number;
-  borderColor?: string;
-  shadowEnabled?: boolean;
-  shadowAngle?: number;
-  shadowDistance?: number;
-  shadowBlur?: number;
-  shadowColor?: string;
-  effects?: Effect[];
-  shape?: 'rect' | 'circle';
+  backgroundColor: string;
+  cornerRadius: number;
+  borderEnabled: boolean;
+  borderWidth: number;
+  borderColor: string;
+  shadowEnabled: boolean;
+  shadowAngle: number;
+  shadowDistance: number;
+  shadowBlur: number;
+  shadowColor: string;
+  effects: Effect[];
+  shape: 'rect' | 'circle';
 }
 
 export type DrawingOptions = StyleOptions & LayoutOptions;
@@ -29,21 +29,21 @@ export function drawComposition(
   loadedImgs: ImageBitmap[],
   {
     fit,
-    backgroundColor = 'transparent',
-    cornerRadius = 0,
-    borderEnabled = false,
-    borderWidth = 0,
-    borderColor = '#ffffff',
-    shadowEnabled = false,
-    shadowAngle = 0,
-    shadowDistance = 0,
-    shadowBlur = 0,
-    shadowColor = '#000000',
-    effects = [],
-    jitterPosition = 0,
-    jitterSize = 0,
-    jitterRotation = 0,
-    shape = 'rect',
+    backgroundColor,
+    cornerRadius,
+    borderEnabled,
+    borderWidth,
+    borderColor,
+    shadowEnabled,
+    shadowAngle,
+    shadowDistance,
+    shadowBlur,
+    shadowColor,
+    effects,
+    jitterPosition,
+    jitterSize,
+    jitterRotation,
+    shape,
   }: DrawingOptions
 ) {
   // Set canvas size
@@ -127,7 +127,7 @@ export function drawComposition(
     const y = baseCy + dy - h / 2;
 
     drawImage(ctx, { ...item, x, y, w, h }, images[item.imageIndex], loadedImgs[item.imageIndex], {
-      fit,
+      fit: layout.fit ?? fit,
       cornerRadiusTargetPx,
       border,
       dropShadow,

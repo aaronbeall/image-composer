@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import { ValueToggle } from './components/ValueToggle';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SequenceSelector } from './components/SequenceSelector';
 import { addAlphaToHex, cn, randomId } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Download, Eye, EyeOff, HelpCircle, ImagePlus, Mail, LayoutGrid, Paintbrush, Share2, Upload, X, AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -15,11 +15,12 @@ import { ToggleSection } from './components/ToggleSection';
 import { PopoverTooltip } from './components/PopoverTooltip';
 import { ValueSlider } from './components/ValueSlider';
 import { EffectsList } from './components/EffectsList';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Effect } from '@/types';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { ComposeImageItem, LayoutType } from './lib/layout';
+import type { ComposeImageItem, LayoutType, Sequence } from './lib/layout';
 
 const NAV_ITEMS = [
   { key: 'images', icon: <ImagePlus size={20} />, label: 'Images' },
@@ -47,6 +48,7 @@ const LAYOUTS = [
     fit: true,
     justify: true,
     shape: 'rect' as const,
+    supportsResize: false,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         {[0, 1, 2].map(r => [0, 1, 2].map(c => (
@@ -61,6 +63,7 @@ const LAYOUTS = [
     fit: true,
     justify: true,
     shape: 'rect' as const,
+    supportsResize: false,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <rect x="2" y="2" width="6" height="6" rx="1" fill="currentColor" />
@@ -79,6 +82,7 @@ const LAYOUTS = [
     fit: true,
     justify: false,
     shape: 'rect' as const,
+    supportsResize: false,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="2" y="2" width="8" height="8" rx="1" fill="currentColor" />
@@ -94,6 +98,7 @@ const LAYOUTS = [
     fit: true,
     justify: true,
     shape: 'rect' as const,
+    supportsResize: false,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <rect x="2" y="2" width="4" height="7" rx="1" fill="currentColor" />
@@ -110,6 +115,7 @@ const LAYOUTS = [
     fit: true,
     justify: true,
     shape: 'rect' as const,
+    supportsResize: false,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="2" y="3" width="8" height="3" rx="0.8" fill="currentColor" />
@@ -127,6 +133,7 @@ const LAYOUTS = [
     fit: false,
     justify: false,
     shape: 'rect' as const,
+    supportsResize: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <rect x="7" y="7" width="6" height="6" rx="1" fill="currentColor" />
@@ -145,6 +152,7 @@ const LAYOUTS = [
     fit: false,
     justify: false,
     shape: 'circle' as const,
+    supportsResize: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="6" cy="7" r="3" fill="currentColor" />
@@ -160,6 +168,7 @@ const LAYOUTS = [
     fit: true,
     justify: false,
     shape: 'rect' as const,
+    supportsResize: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="7" y="3" width="6" height="4" rx="1" fill="currentColor" />
@@ -174,6 +183,7 @@ const LAYOUTS = [
     fit: true,
     justify: false,
     shape: 'rect' as const,
+    supportsResize: true,
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect x="3" y="7" width="4" height="6" rx="1" fill="currentColor" />
@@ -189,6 +199,7 @@ const LAYOUTS = [
   fit: boolean;
   justify: boolean;
   shape: 'rect' | 'circle';
+  supportsResize?: boolean;
 }[];
 
 const LAYOUT_KEYS: LayoutType[] = LAYOUTS.map(l => l.key);
@@ -227,6 +238,9 @@ export default function App() {
   const [jitterPosition, setJitterPosition] = useState(10);
   const [jitterSize, setJitterSize] = useState(10);
   const [jitterRotation, setJitterRotation] = useState(10);
+  const [resizeEnabled, setResizeEnabled] = useState(false);
+  const [resizeAmount, setResizeAmount] = useState(50);
+  const [resizeSequence, setResizeSequence] = useState<Sequence | ''>('');
   const [canvasInfo, setCanvasInfo] = useState<{ width: number; height: number; getImageData?: () => string; getImageBlob?: () => Promise<Blob | null>; }>({ width: 0, height: 0 });
   const [isSharing, setIsSharing] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -339,6 +353,8 @@ export default function App() {
   const supportsFit = !!selectedLayout?.fit;
   const supportsJustify = !!selectedLayout?.justify;
   const shape = selectedLayout?.shape ?? 'rect';
+  const supportsResize = !!selectedLayout?.supportsResize;
+  const resizeAvailable = supportsResize && !(supportsFit && fit);
 
   const randomPick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
   const randomBool = (probability = 0.5) => Math.random() < probability;
@@ -697,6 +713,13 @@ export default function App() {
                   <ValueSlider label="Size" value={jitterSize} onChange={setJitterSize} max={100} unit="%" />
                   <ValueSlider label="Rotation" value={jitterRotation} onChange={setJitterRotation} max={45} unit="°" />
                 </ToggleSection>
+
+                {resizeAvailable && (
+                  <ToggleSection label="Resize" enabled={resizeEnabled} onToggle={setResizeEnabled}>
+                    <ValueSlider label="Amount" value={resizeAmount} onChange={setResizeAmount} min={-100} max={200} unit="%" />
+                    <SequenceSelector value={resizeSequence} onChange={setResizeSequence} />
+                  </ToggleSection>
+                )}
               </div>
             )}
             {activeTab === 'style' && (
@@ -781,6 +804,9 @@ export default function App() {
                   jitterPosition={jitterEnabled ? jitterPosition : 0}
                   jitterSize={jitterEnabled ? jitterSize : 0}
                   jitterRotation={jitterEnabled ? jitterRotation : 0}
+                  resizeEnabled={resizeAvailable ? resizeEnabled : false}
+                  resizeAmount={resizeAmount}
+                  resizeSequence={resizeSequence || 'random'}
                   scale={scale / 100}
                   backgroundColor={bgColor}
                   cornerRadius={cornerRadius}
@@ -822,7 +848,6 @@ export default function App() {
                       className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition px-1 py-0.5 rounded"
                       style={{ fontSize: 'inherit' }}
                       onClick={() => {
-                        setActiveTab('images');
                         setSidebarOpen(true);
                       }}
                       title="Show images"
@@ -846,7 +871,6 @@ export default function App() {
                       className="text-indigo-400 underline underline-offset-2 hover:text-indigo-300 transition px-1 py-0.5 rounded"
                       style={{ fontSize: 'inherit' }}
                       onClick={() => {
-                        setActiveTab('layout');
                         setSidebarOpen(true);
                       }}
                       title="Show layout settings"
