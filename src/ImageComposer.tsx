@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import type { StyleOptions } from './lib/draw';
 import { type ComposeImageItem, type LayoutOptions } from './lib/layout';
+import { arrayShallowEqual } from './lib/utils';
 
 interface ImageComposerProps extends LayoutOptions, StyleOptions {
   images: ComposeImageItem[];
@@ -91,14 +92,12 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       }
       const bitmapCache = imageBitmapCacheRef.current;
 
-      let bitmapsChanged = false;
       const bitmaps = await Promise.all(images.map(async img => {
         const cached = bitmapCache.get(img.id);
         if (cached) return cached;
 
         const bitmap = await loadBitmap(img.src);
         bitmapCache.set(img.id, bitmap);
-        bitmapsChanged = true;
         return bitmap;
       }));
 
@@ -108,12 +107,9 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
         if (!currentIdSet.has(id)) {
           bitmap.close();
           bitmapCache.delete(id);
-          bitmapsChanged = true;
         }
       }
-      if (bitmapsChanged) {
-        setLoadedImageBitmaps(bitmaps);
-      }
+      setLoadedImageBitmaps(prev => arrayShallowEqual(prev ?? [], bitmaps) ? prev : bitmaps);
     };
     load();
     return () => { cancelled = true; };
