@@ -91,12 +91,14 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
       }
       const bitmapCache = imageBitmapCacheRef.current;
 
+      let bitmapsChanged = false;
       const bitmaps = await Promise.all(images.map(async img => {
         const cached = bitmapCache.get(img.id);
         if (cached) return cached;
 
         const bitmap = await loadBitmap(img.src);
         bitmapCache.set(img.id, bitmap);
+        bitmapsChanged = true;
         return bitmap;
       }));
 
@@ -106,9 +108,12 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
         if (!currentIdSet.has(id)) {
           bitmap.close();
           bitmapCache.delete(id);
+          bitmapsChanged = true;
         }
       }
-      setLoadedImageBitmaps(bitmaps);
+      if (bitmapsChanged) {
+        setLoadedImageBitmaps(bitmaps);
+      }
     };
     load();
     return () => { cancelled = true; };
@@ -131,55 +136,65 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     const offscreenCanvas = new OffscreenCanvas(1, 1);
 
     // Send work to worker (worker will send 'start' message)
-    try {
-      const shouldSendBitmaps = loadedImageBitmaps !== lastSentBitmapsRef.current;
-      const payload = {
-        type: 'compose',
-        offscreenCanvas,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        images: images.map(({ src, file, ...img }) => img), // Exclude src/file from image data sent to worker 
-        loadedImgs: shouldSendBitmaps ? loadedImageBitmaps : undefined,
-        options: {
-          // Layout options
-          normalizeSize,
-          layout,
-          spacing,
-          fit,
-          scale,
-          justify,
-          // Style options
-          backgroundColor,
-          cornerRadius,
-          borderEnabled,
-          borderWidth,
-          borderColor,
-          shadowEnabled,
-          shadowAngle,
-          shadowDistance,
-          shadowBlur,
-          shadowColor,
-          effects,
-          jitterPosition,
-          jitterSize,
-          jitterRotation,
-          shape,
-        },
-      } as const;
+    const sendToWorker = async () => {
+      if (!workerRef.current) return;
+      try {
+        const shouldSendBitmaps = loadedImageBitmaps !== lastSentBitmapsRef.current;
 
-      const transferList: Transferable[] = shouldSendBitmaps
-        ? [offscreenCanvas, ...loadedImageBitmaps]
-        : [offscreenCanvas];
+        // Clone bitmaps before transferring to preserve cached copies
+        const bitmapsToTransfer = shouldSendBitmaps
+          ? await Promise.all(loadedImageBitmaps.map(b => createImageBitmap(b)))
+          : undefined;
 
-      workerRef.current.postMessage({
-        ...payload,
-      }, transferList);
+        const payload = {
+          type: 'compose',
+          offscreenCanvas,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          images: images.map(({ src, file, ...img }) => img), // Exclude src/file from image data sent to worker 
+          loadedImgs: bitmapsToTransfer,
+          options: {
+            // Layout options
+            normalizeSize,
+            layout,
+            spacing,
+            fit,
+            scale,
+            justify,
+            // Style options
+            backgroundColor,
+            cornerRadius,
+            borderEnabled,
+            borderWidth,
+            borderColor,
+            shadowEnabled,
+            shadowAngle,
+            shadowDistance,
+            shadowBlur,
+            shadowColor,
+            effects,
+            jitterPosition,
+            jitterSize,
+            jitterRotation,
+            shape,
+          },
+        } as const;
 
-      if (shouldSendBitmaps) {
-        lastSentBitmapsRef.current = loadedImageBitmaps;
+        const transferList: Transferable[] = bitmapsToTransfer
+          ? [offscreenCanvas, ...bitmapsToTransfer]
+          : [offscreenCanvas];
+
+        workerRef.current.postMessage({
+          ...payload,
+        }, transferList);
+
+        if (shouldSendBitmaps) {
+          lastSentBitmapsRef.current = loadedImageBitmaps;
+        }
+      } catch (error) {
+        console.error('Error sending message to worker:', error);
       }
-    } catch (error) {
-      console.error('Error sending message to worker:', error);
-    }
+    };
+    sendToWorker();
   }, [
     loadedImageBitmaps,
     images,
