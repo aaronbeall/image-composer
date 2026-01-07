@@ -13,8 +13,8 @@ Paste/select images into a single composed image, with layout, spacing, and fitt
 * [ ] Debunce updates
 * [ ] Offload to workers
   * [ ] Load images
-  * [ ] Layout algorithm
-  * [ ] Offscreen canvas for drawing
+  * [x] Layout algorithm
+  * [x] Offscreen canvas for drawing
 * [ ] Drag and drop on canvas (tricky due to sorting)
 * [ ] Add dragging offset to position images within their frame
 * [ ] Individual image editing
