@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import { ValueToggle } from './components/ValueToggle';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { addAlphaToHex, cn } from '@/lib/utils';
+import { addAlphaToHex, cn, randomId } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, ClipboardIcon, ClipboardPaste, Dices, Download, Eye, EyeOff, HelpCircle, ImagePlus, Mail, LayoutGrid, Paintbrush, Share2, Upload, X, AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SiPatreon, SiBuymeacoffee } from 'react-icons/si';
@@ -243,7 +243,7 @@ export default function App() {
         setImages(prev => [
           ...prev,
           {
-            id: Math.random().toString(36).slice(2),
+            id: randomId(),
             src: e.target?.result as string,
             file,
           },

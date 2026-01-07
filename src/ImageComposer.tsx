@@ -31,6 +31,7 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageBitmapCacheRef = useRef<Map<string, ImageBitmap>>(new Map());
   const workerRef = useRef<Worker | null>(null);
+  const lastSentBitmapsRef = useRef<ImageBitmap[] | null>(null);
   const [loadedImageBitmaps, setLoadedImageBitmaps] = useState<ImageBitmap[] | null>(null);
   const [isRendering, setIsRendering] = useState(false);
 
@@ -84,20 +85,29 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
     const load = async () => {
       if (!images.length) {
         setLoadedImageBitmaps([]);
+        imageBitmapCacheRef.current.forEach(bitmap => bitmap.close());
+        imageBitmapCacheRef.current.clear();
         return;
       }
       const bitmapCache = imageBitmapCacheRef.current;
 
       const bitmaps = await Promise.all(images.map(async img => {
-        const cached = bitmapCache.get(img.src);
+        const cached = bitmapCache.get(img.id);
         if (cached) return cached;
 
         const bitmap = await loadBitmap(img.src);
-        bitmapCache.set(img.src, bitmap);
+        bitmapCache.set(img.id, bitmap);
         return bitmap;
       }));
 
       if (cancelled) return;
+      const currentIdSet = new Set(images.map(img => img.id));
+      for (const [id, bitmap] of bitmapCache.entries()) {
+        if (!currentIdSet.has(id)) {
+          bitmap.close();
+          bitmapCache.delete(id);
+        }
+      }
       setLoadedImageBitmaps(bitmaps);
     };
     load();
@@ -122,11 +132,13 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
 
     // Send work to worker (worker will send 'start' message)
     try {
-      workerRef.current.postMessage({
+      const shouldSendBitmaps = loadedImageBitmaps !== lastSentBitmapsRef.current;
+      const payload = {
         type: 'compose',
         offscreenCanvas,
-        images,
-        loadedImgs: loadedImageBitmaps,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        images: images.map(({ src, file, ...img }) => img), // Exclude src/file from image data sent to worker 
+        loadedImgs: shouldSendBitmaps ? loadedImageBitmaps : undefined,
         options: {
           // Layout options
           normalizeSize,
@@ -152,7 +164,19 @@ export const ImageComposer: React.FC<ImageComposerProps> = ({ images, normalizeS
           jitterRotation,
           shape,
         },
-      }, [offscreenCanvas]); // Transfer OffscreenCanvas
+      } as const;
+
+      const transferList: Transferable[] = shouldSendBitmaps
+        ? [offscreenCanvas, ...loadedImageBitmaps]
+        : [offscreenCanvas];
+
+      workerRef.current.postMessage({
+        ...payload,
+      }, transferList);
+
+      if (shouldSendBitmaps) {
+        lastSentBitmapsRef.current = loadedImageBitmaps;
+      }
     } catch (error) {
       console.error('Error sending message to worker:', error);
     }

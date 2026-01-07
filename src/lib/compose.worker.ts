@@ -6,7 +6,7 @@ interface DrawWorkerMessage {
   type: 'compose';
   offscreenCanvas: OffscreenCanvas;
   images: ComposeImageItem[];
-  loadedImgs: ImageBitmap[];
+  loadedImgs?: ImageBitmap[]; // Provided only when images change; otherwise reuse cached bitmaps
   options: DrawingOptions;
 }
 
@@ -20,6 +20,7 @@ interface DrawWorkerResponse {
 
 let lastLayoutKey: string | null = null;
 let lastLayoutResult: LayoutResult | null = null;
+let cachedBitmaps: ImageBitmap[] | null = null;
 
 self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
   if (event.data.type !== 'compose') return;
@@ -32,9 +33,24 @@ self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
   try {
     const { offscreenCanvas, images, loadedImgs, options } = event.data;
 
+    if (loadedImgs) {
+      if (cachedBitmaps) {
+        cachedBitmaps.forEach(b => b.close());
+      }
+      cachedBitmaps = loadedImgs;
+    }
+
+    if (!cachedBitmaps || cachedBitmaps.length !== images.length) {
+      self.postMessage({
+        type: 'error',
+        error: 'No bitmaps available in worker',
+      } as DrawWorkerResponse);
+      return;
+    }
+
     const layoutParams = {
       images,
-      loadedImages: loadedImgs,
+      loadedImages: cachedBitmaps,
       normalizeSize: options.normalizeSize,
       layout: options.layout,
       spacing: options.spacing,
@@ -46,7 +62,7 @@ self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
     // Compute layout (with simple cache)
     const layoutKey = JSON.stringify({
       ...layoutParams,
-      images: layoutParams.images.map(i => i.src),
+      images: layoutParams.images.map(i => [i.id, i.width, i.height]),
       dims: layoutParams.loadedImages.map(b => [b.width, b.height]),
     });
 
@@ -73,7 +89,7 @@ self.onmessage = async (event: MessageEvent<DrawWorkerMessage>) => {
     }
 
     // Draw composition using computed layout
-    drawComposition(ctx, layoutResult, images, loadedImgs, options);
+    drawComposition(ctx, layoutResult, images, cachedBitmaps, options);
 
     // Transfer the rendered image back to the main thread
     const imageBitmap = offscreenCanvas.transferToImageBitmap();

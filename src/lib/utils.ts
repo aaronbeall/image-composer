@@ -65,3 +65,8 @@ export function titleCase(text: string): string {
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
+
+
+export function randomId(): string {
+  return Math.random().toString(36).slice(2);
+}
