@@ -10,8 +10,8 @@ Paste/select images into a single composed image, with layout, spacing, and fitt
 ## Todo
 
 * [ ] Canvas margin
-* [ ] Debunce updates
-* [ ] Offload to workers
+* [x] Debounce updates
+* [x] Offload to workers
   * [ ] Load images
   * [x] Layout algorithm
   * [x] Offscreen canvas for drawing
@@ -26,9 +26,10 @@ Paste/select images into a single composed image, with layout, spacing, and fitt
 * [ ] Random seed cycler
 * [ ] Non-algorithmic designed collage layouts
 * [ ] Create image (shape, color, text, etc)
-* [ ] Max image size (prevents crashes on large images)
+* [x] Max image size (prevents crashes on large images)
+  * [ ] User configurable
 * [ ] Background gradients and patterns
-* [ ] Sequencer (size, opacity, rotation)
+* [x] Sequencer (size, opacity, rotation)
 * [ ] Canvas zoom, pan, actual size controls
 
 # Issues
